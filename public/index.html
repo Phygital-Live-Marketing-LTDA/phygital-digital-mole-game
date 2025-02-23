@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Jogo de Relés</title>
+  <!-- Inclui o cliente Socket.IO -->
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    h1 {
+      margin-top: 20px;
+    }
+
+    #score,
+    #timer {
+      font-size: 1.2em;
+      margin: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <button id="startButton">Começar</button>
+  <div id="countdown" style="font-size: 2em; margin: 10px;"></div>
+
+  <h1>Jogo de Relés</h1>
+  <p id="score">Pontuação: 0</p>
+  <p id="timer">Tempo restante: 20s</p>
+</body>
+<script src="/assets/js/index.js"></script>
+</html>

@@ -1,0 +1,34 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Node modules
+node_modules/
+
+# Diretórios de cache
+.npm
+.nyc_output/
+
+# Diretórios de cobertura de testes
+coverage/
+
+# Arquivos de ambiente
+.env
+
+# Diretórios de IDEs e editores
+.vscode/
+.idea/
+
+# Arquivos temporários e de build
+dist/
+build/
+
+# Outros arquivos temporários
+tmp/
+temp/
+
+.env
+/js/json/passwords.json
