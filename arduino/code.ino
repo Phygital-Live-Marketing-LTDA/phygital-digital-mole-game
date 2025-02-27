@@ -6,15 +6,15 @@ const uint8_t NUM_MODULES = 2;       // Número de módulos (ex.: 2)
 const uint8_t RELAYS_PER_MODULE = 4; // Número de relés por módulo (ex.: 4)
 const uint8_t BUFFER_SIZE = 10;      // Tamanho do buffer para comandos
 
-SerialRelay relays(4, 5, NUM_MODULES); // (data pin, clock pin, número de módulos)
+SerialRelay relays(2, 3, NUM_MODULES); // (data pin, clock pin, número de módulos)
 uint8_t currentModule = 1;            // Módulo ativo
 
 char buffer[BUFFER_SIZE];
 uint8_t bufferIndex = 0;
 
 // Configuração dos botões
-const int NUM_BUTTONS = 10;
-int buttonPins[NUM_BUTTONS] = {2, 3, 6, 7, 8, 9, 10, 11, 12, 13};
+const int NUM_BUTTONS = 8;
+int buttonPins[NUM_BUTTONS] = {10, 11, 12, 13, 14, 15, 16, 17};
 bool lastButtonStates[NUM_BUTTONS];
 
 void setup() {

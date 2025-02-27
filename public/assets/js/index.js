@@ -99,14 +99,15 @@ socket.on('button_pressed', (data) => {
     if (button_pressed === currentTarget.correctButton) {
       score++;
       updateScoreDisplay();
+      // Desliga o relé atual e inicia a próxima rodada
+      turnOffRelay(currentTarget.module, currentTarget.relay).then(() => {
+        currentTarget = null;
+        nextRound();
+      });
       console.log("Resposta correta! Pontuação: " + score);
     } else {
       console.log("Resposta incorreta.");
     }
-    // Desliga o relé atual e inicia a próxima rodada
-    turnOffRelay(currentTarget.module, currentTarget.relay);
-    currentTarget = null;
-    nextRound();
   }
 });
 
