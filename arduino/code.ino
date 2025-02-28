@@ -6,7 +6,7 @@ const uint8_t NUM_MODULES = 2;       // Número de módulos (ex.: 2)
 const uint8_t RELAYS_PER_MODULE = 4; // Número de relés por módulo (ex.: 4)
 const uint8_t BUFFER_SIZE = 10;      // Tamanho do buffer para comandos
 
-SerialRelay relays(2, 3, NUM_MODULES); // (data pin, clock pin, número de módulos)
+SerialRelay relays(3, 2, NUM_MODULES); // (data pin, clock pin, número de módulos)
 uint8_t currentModule = 1;            // Módulo ativo
 
 char buffer[BUFFER_SIZE];

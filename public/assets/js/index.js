@@ -5,6 +5,7 @@ const gameDuration = 20000; // 20 segundos (em milissegundos)
 let currentTarget = null;   // Objeto { module, relay, correctButton }
 let score = 0;
 let roundTimeout = null;
+let previousTarget = null;  // Objeto { module, relay, correctButton }
 
 // Atualiza a exibição da pontuação
 function updateScoreDisplay() {
@@ -53,18 +54,24 @@ function nextRound() {
   document.getElementById('timer').innerText =
     "Tempo restante: " + Math.max(0, Math.ceil((gameDuration - elapsed) / 1000)) + "s";
 
-  // Escolhe aleatoriamente módulo (1 ou 2) e relé (1 a 4)
-  const module = randomInt(1, 2);
-  const relay = randomInt(1, 4);
-  // Define o botão correto: módulo 1 → botão = relay; módulo 2 → botão = relay + 4
-  const correctButton = (module === 1) ? relay : relay + 4;
-  currentTarget = { module, relay, correctButton };
+  let module, relay, correctButton;
+
+  do {
+    module = randomInt(1, 2);
+    relay = randomInt(1, 4);
+    correctButton = (module === 1) ? relay : relay + 4;
+  } while (previousTarget && previousTarget.module === module && previousTarget.relay === relay);
+
+  // Armazena a nova combinação para evitar repetições na próxima rodada
+  previousTarget = { module, relay, correctButton };
+  currentTarget = previousTarget;
+
   console.log("Round: Módulo " + module + ", Relé " + relay + ", Botão correto: " + correctButton);
 
   // Liga o relé escolhido
   turnOnRelay(module, relay);
-  // NÃO há timeout: o round só avança quando um botão é pressionado (ou quando o tempo total expira)
 }
+
 
 // Encerra o jogo e exibe a pontuação final
 function endGame() {
@@ -92,8 +99,7 @@ socket.on('connect', () => {
 });
 
 socket.on('button_pressed', (data) => {
-  let correctionFactor = 2;
-  let button_pressed = parseInt(data.button) - correctionFactor;
+  let button_pressed = parseInt(data.button);
   console.log("Botão pressionado: " + button_pressed);
   if (gameRunning && currentTarget) {
     if (button_pressed === currentTarget.correctButton) {
