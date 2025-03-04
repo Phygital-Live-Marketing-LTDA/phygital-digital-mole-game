@@ -1,36 +1,132 @@
 <!DOCTYPE html>
-<html lang="pt-br">
-
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Jogo de Relés</title>
-  <!-- Inclui o cliente Socket.IO -->
-  <script src="/socket.io/socket.io.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-    }
-
-    h1 {
-      margin-top: 20px;
-    }
-
-    #score,
-    #timer {
-      font-size: 1.2em;
-      margin: 10px;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jogo dos Relés ESP</title>
+  <script src="assets/js/tailwind.js"></script>
 </head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="bg-white shadow-lg rounded-lg p-8 max-w-md w-full">
+    <h1 class="text-3xl font-bold text-center mb-6">Jogo dos Relés ESP</h1>
+    
+    <!-- Tela pré-jogo (idle) -->
+    <div id="preGame" class="flex flex-col items-center">
+      <button id="startButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        Iniciar Jogo
+      </button>
+    </div>
+    
+    <!-- Tela do jogo em andamento -->
+    <div id="runningGame" class="hidden flex flex-col items-center">
+      <p id="score" class="text-xl font-medium">Pontuação: 0</p>
+      <p id="timer" class="text-xl font-medium">Tempo restante: 20s</p>
+    </div>
+    
+    <!-- Tela de pontuação final (exibida por 5 segundos) -->
+    <div id="scoreScreen" class="hidden flex flex-col items-center">
+      <h2 class="text-2xl font-bold mb-4">Fim do Jogo!</h2>
+      <p id="finalScore" class="text-xl">Pontuação final: 0</p>
+    </div>
+    
+    <!-- Tela de ranking (exibida por 10 segundos) -->
+    <div id="rankingScreen" class="hidden flex flex-col items-center">
+      <h2 class="text-2xl font-bold mb-4">Ranking Top 10</h2>
+      <ol id="rankingList" class="list-decimal text-left w-full"></ol>
+    </div>
+  </div>
+  <script>
+    /* 
+      Estados do jogo:
+      0 = Idle (pré-jogo)
+      1 = Jogo em andamento (running)
+      2 = Tela de pontuação final (score screen)
+      3 = Tela de ranking (ranking screen)
+    */
+    let gameState = 0;
+    const startButton = document.getElementById('startButton');
+    const preGameDiv = document.getElementById('preGame');
+    const runningGameDiv = document.getElementById('runningGame');
+    const scoreScreenDiv = document.getElementById('scoreScreen');
+    const rankingScreenDiv = document.getElementById('rankingScreen');
+    const scoreElem = document.getElementById('score');
+    const timerElem = document.getElementById('timer');
+    const finalScoreElem = document.getElementById('finalScore');
+    const rankingListElem = document.getElementById('rankingList');
 
-<body>
-  <button id="startButton">Começar</button>
-  <div id="countdown" style="font-size: 2em; margin: 10px;"></div>
+    const evtSource = new EventSource('/events');
 
-  <h1>Jogo de Relés</h1>
-  <p id="score">Pontuação: 0</p>
-  <p id="timer">Tempo restante: 20s</p>
+    // Ao clicar no botão, envia requisição para iniciar o jogo
+    startButton.addEventListener('click', () => {
+      startButton.disabled = true;
+      fetch('/start-game', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+          console.log("Jogo iniciado:", data);
+          // Muda para estado 1 (jogo em andamento)
+          gameState = 1;
+          updateDisplay();
+          startButton.disabled = false;
+        })
+        .catch(err => console.error(err));
+    });
+
+    // Atualiza a visibilidade das seções conforme o estado
+    function updateDisplay() {
+      if (gameState === 0) {
+        preGameDiv.classList.remove('hidden');
+        runningGameDiv.classList.add('hidden');
+        scoreScreenDiv.classList.add('hidden');
+        rankingScreenDiv.classList.add('hidden');
+      } else if (gameState === 1) {
+        preGameDiv.classList.add('hidden');
+        runningGameDiv.classList.remove('hidden');
+        scoreScreenDiv.classList.add('hidden');
+        rankingScreenDiv.classList.add('hidden');
+      } else if (gameState === 2) {
+        preGameDiv.classList.add('hidden');
+        runningGameDiv.classList.add('hidden');
+        scoreScreenDiv.classList.remove('hidden');
+        rankingScreenDiv.classList.add('hidden');
+      } else if (gameState === 3) {
+        preGameDiv.classList.add('hidden');
+        runningGameDiv.classList.add('hidden');
+        scoreScreenDiv.classList.add('hidden');
+        rankingScreenDiv.classList.remove('hidden');
+      }
+    }
+
+    evtSource.onmessage = function(event) {
+      const data = JSON.parse(event.data);
+      
+      // Atualiza o estado global se presente
+      if(data.state !== undefined) {
+        gameState = data.state;
+      }
+      
+      // Atualiza a interface de acordo com o estado
+      if (gameState === 1) {
+        scoreElem.innerText = "Pontuação: " + data.score;
+        timerElem.innerText = "Tempo restante: " + data.timeRemaining + "s";
+      } else if (gameState === 2) {
+        finalScoreElem.innerText = "Pontuação final: " + data.score;
+      }
+      
+      // Se estiver em ranking, podemos atualizar a lista aqui também:
+      if (gameState === 3 && data.ranking) {
+        rankingListElem.innerHTML = "";
+        // Assume que o servidor envie um array em data.ranking
+        data.ranking.forEach((entry, index) => {
+          const li = document.createElement('li');
+          li.classList.add("mb-2", "p-2", "bg-gray-200", "rounded");
+          li.innerText = (index + 1) + "º - " + entry.datetime + " - " + entry.score + " pontos";
+          rankingListElem.appendChild(li);
+        });
+      }
+      
+      // Atualiza a visibilidade das seções conforme o estado
+      updateDisplay();
+    };
+  </script>
 </body>
-<script src="/assets/js/index.js"></script>
 </html>
