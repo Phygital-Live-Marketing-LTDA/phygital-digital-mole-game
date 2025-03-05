@@ -32,6 +32,6 @@ function copyOther() {
 }
 
 // Tarefa principal de build
-const build = gulp.parallel(minifyHtml, minifyCss, minifyJs, copyOther);
+const build = gulp.parallel(minifyHtml, minifyCss, minifyJs);
 
 exports.build = build;

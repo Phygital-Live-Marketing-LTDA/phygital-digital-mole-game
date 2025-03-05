@@ -43,6 +43,7 @@
       2 = Tela de pontuação final (score screen)
       3 = Tela de ranking (ranking screen)
     */
+    let audioPlayed = false;
     let gameState = 0;
     const startButton = document.getElementById('startButton');
     const preGameDiv = document.getElementById('preGame');
@@ -55,6 +56,37 @@
     const rankingListElem = document.getElementById('rankingList');
 
     const evtSource = new EventSource('/events');
+
+    // Crie instâncias globais para os áudios e pré-carregue-os
+    const countdownAudio = new Audio("assets/audio/countdown.mp3");
+    countdownAudio.preload = "auto";
+    countdownAudio.load();
+
+    const endAudio = new Audio("assets/audio/end.mp3");
+    endAudio.preload = "auto";
+    endAudio.load();
+
+    function playAudio(type) {
+      if (audioPlayed) return; // Evita tocar se já estiver tocando
+      let audio;
+      if (type === "countdown") {
+        audio = countdownAudio;
+      } else if (type === "end") {
+        audio = endAudio;
+      }
+      if (audio) {
+        // Reinicia o áudio para garantir que comece do início
+        audio.currentTime = 0;
+        audio.play()
+          .then(() => { audioPlayed = true; })
+          .catch(err => console.error("Erro ao tocar áudio:", err));
+        
+        // Quando o áudio terminar, reseta audioPlayed para false
+        audio.addEventListener("ended", () => {
+          audioPlayed = false;
+        }, { once: true });
+      }
+    }
 
     // Ao clicar no botão, envia requisição para iniciar o jogo
     startButton.addEventListener('click', () => {
@@ -122,6 +154,12 @@
           li.innerText = (index + 1) + "º - " + entry.datetime + " - " + entry.score + " pontos";
           rankingListElem.appendChild(li);
         });
+      }
+
+      // Se a propriedade "audio" estiver presente, chama a função playAudio
+      if (data.audio && !audioPlayed) {
+        playAudio(data.audio);
+        audioPlayed = true;
       }
       
       // Atualiza a visibilidade das seções conforme o estado
