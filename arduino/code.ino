@@ -61,7 +61,8 @@
 
   // Pino para alternar animação idle
   const int togglePin = 2;
-  bool animationEnabled = false;
+  bool animationEnabled = true;
+  bool geralAnimationEnabled = true;
   bool lastToggleState;
   bool preStartGameLeds = false;
   bool invertRelayLogic = true; // Defina como true para inverter
@@ -176,22 +177,17 @@
   // ------------------------- Funções de Jogo -------------------------
   void turnOnAllRelays() {
     for (uint8_t mod = 1; mod <= NUM_MODULES; mod++) {
-      if (mod == 1)
-        relays.SetModule(0x00, mod, false);
-      else
-        relays.SetModule(0x55, mod);
+      relays.SetModule(0x00, mod, false);
       for (uint8_t r = 1; r <= RELAYS_PER_MODULE; r++) {
         relays.SetRelay(r, SERIAL_RELAY_ON, mod);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
       }
     }
   }
 
   void resetRelays() {
     for (uint8_t mod = 1; mod <= NUM_MODULES; mod++) {
-      if (mod == 1)
-        relays.SetModule(0x00, mod, false);
-      else
-        relays.SetModule(0x55, mod);
+      relays.SetModule(0x00, mod, false);
       for (uint8_t r = 1; r <= RELAYS_PER_MODULE; r++) {
         relays.SetRelay(r, SERIAL_RELAY_OFF, mod);
       }
@@ -209,19 +205,28 @@
   }  
 
   void nextRound() {
+    // Se o tempo do jogo já expirou, não inicia nova rodada.
     if (millis() - gameStartTime >= gameDuration) return;
+    
     uint8_t mod, relay, correctButton;
+    uint8_t attempts = 0;
+    
+    // Tenta até 10 vezes obter uma combinação diferente da anterior
     do {
       mod = random(1, NUM_MODULES + 1);
       relay = random(1, RELAYS_PER_MODULE + 1);
       correctButton = (mod == 1) ? relay : relay + 4;
-    } while (targetActive && (previousTarget.module == mod && previousTarget.relay == relay));
+      attempts++;
+    } while ( (mod == previousTarget.module && relay == previousTarget.relay) && (attempts < 10) );
+    
+    // Se mesmo após 10 tentativas a combinação for a mesma, aceita (para não travar)
     previousTarget = { mod, relay, correctButton };
     currentTarget = previousTarget;
     targetActive = true;
-    Serial.printf("Nova rodada: Módulo %d, Relé %d, Botão correto: %d\n", mod, relay, correctButton);
+    
+    Serial.printf("Nova rodada: Módulo %d, Relé %d, Botão correto: %d (tentativas: %d)\n", mod, relay, correctButton, attempts);
     relays.SetRelay(relay, SERIAL_RELAY_ON, mod);
-  }
+  }  
 
   void endGame() {
     gameRunning = false;
@@ -269,6 +274,7 @@
     // Se estiver na tela de ranking por 10 segundos, reseta para idle
     else if (gameState == 3 && (millis() - stateChangeTime >= 10000)) {
       gameState = 0; // Idle
+      animationEnabled = geralAnimationEnabled;
       score = 0;
     }
   }
@@ -523,6 +529,7 @@
 
       // Processa a contagem regressiva (estado 4)
       if (gameState == 4) {
+        animationEnabled = false;
         unsigned long elapsed = millis() - countdownStartTime;
         if (elapsed < 3000) {
           playEndAnimation();
@@ -539,6 +546,7 @@
       bool currentToggleState = digitalRead(togglePin);
       if (lastToggleState == LOW && currentToggleState == HIGH) {
         animationEnabled = !animationEnabled;
+        geralAnimationEnabled = animationEnabled;
         Serial.printf("Animação %s\n", animationEnabled ? "ativada" : "desativada");
         vTaskDelay(100 / portTICK_PERIOD_MS);
       }
@@ -600,10 +608,7 @@
     
     // Inicializa os módulos dos relés
     for (uint8_t i = 1; i <= NUM_MODULES; i++) {
-      if (i == 1)
-        relays.SetModule(0x00, i, false);
-      else
-        relays.SetModule(0x55, i);
+      relays.SetModule(0x00, i, false);
     }
     relays.Info(&Serial);
     bufferIndex = 0;
@@ -612,7 +617,7 @@
     gameRunning = false;
 
     resetRelays();
-    
+
     // Cria a task para a lógica do jogo
     xTaskCreate(
       gameLogicTask,     // Função da task
