@@ -11,8 +11,6 @@
 using std::vector;
 
 // ========================= Globais =========================
-unsigned long lastPrintTime = 0;
-const char* RANKING_FILE = "/ranking.json";
 const int NUM_BUTTONS = 8;
 int buttonPins[NUM_BUTTONS] = {14, 27, 26, 25, 33, 32, 35, 34};
 bool lastButtonStates[NUM_BUTTONS];
@@ -22,17 +20,8 @@ const uint8_t NUM_MODULES = 2;       // Número de módulos (ex.: 2)
 const uint8_t RELAYS_PER_MODULE = 4;  // Número de relés por módulo (ex.: 4)
 const uint8_t BUFFER_SIZE = 10;       // Tamanho do buffer para comandos
 
-// Pino físico para iniciar o jogo (start)
-const int startButtonPin = 15;
 unsigned long countdownStartTime = 0; // Início da contagem regressiva
-
-// Pino para alternar animação idle
-const int togglePin = 2;
-bool animationEnabled = true;
-bool geralAnimationEnabled = true;
-bool lastToggleState = false;
-bool preStartGameLeds = false;
-bool invertRelayLogic = true;  // Se true, lógica de inversão será aplicada
+bool animationStatus, animationEnabled = false;
 
 // ========================= Lógica do Jogo e Ranking =========================
 // Estados do jogo:
@@ -55,31 +44,8 @@ const char *password = "Eventstag";
 
 // Instância do servidor assíncrono e do EventSource para SSE
 AsyncWebServer server(80);
-AsyncEventSource events("/events");
-
-// ========================= Utilitários =========================
-// Função para determinar o Content-Type a partir da extensão do arquivo
-String getContentType(const String &filename) {
-  if (filename.endsWith(".html")) return "text/html";
-  else if (filename.endsWith(".css")) return "text/css";
-  else if (filename.endsWith(".js")) return "application/javascript";
-  else if (filename.endsWith(".png")) return "image/png";
-  else if (filename.endsWith(".jpg")) return "image/jpeg";
-  return "text/plain";
-}
-
-// Configura o File Server para servir arquivos do SPIFFS
-void setupFileServer() {
-  server.onNotFound([](AsyncWebServerRequest *request) {
-    String path = request->url();
-    if (path.endsWith("/")) path += "index.html";
-    if (SPIFFS.exists(path)) {
-      request->send(SPIFFS, path, getContentType(path));
-    } else {
-      request->send(404, "text/plain", F("Arquivo não encontrado"));
-    }
-  });
-}
+// Cria o objeto WebSocket no endpoint "/ws"
+AsyncWebSocket ws("/ws");
 
 // Inicializa o controlador de relés (pins: data em 13, clock em 12)
 SerialRelay relays(13, 12, NUM_MODULES);
@@ -99,106 +65,31 @@ Target currentTarget;
 Target previousTarget;
 bool targetActive = false;
 
-// ========================= Ranking =========================
-struct RankingEntry {
-  String datetime;
-  uint16_t score;
-};
+// -----------------------------------------------------------------------------
+// Definição das sequências de animação (baseadas no novo arranjo)
+// Exemplo para a animação "Spiral":
+const uint8_t spiralSequence[] = { 1, 2, 8, 7, 3, 4, 6, 5 };
+const size_t spiralSequenceCount = sizeof(spiralSequence) / sizeof(spiralSequence[0]);
 
-#define MAX_RANKING 10
-RankingEntry ranking[MAX_RANKING];
-uint8_t rankingCount = 0; // Quantas entradas estão armazenadas
+// Exemplo para a animação "Snake":
+const uint8_t snakeSequence[] = { 1, 2, 4, 8, 7, 5, 3, 1 };
+const size_t snakeSequenceCount = sizeof(snakeSequence) / sizeof(snakeSequence[0]);
 
-// Formata a data/hora no padrão PT-BR (dd/mm/yyyy hh:mm:ss)
-String formatDateTime() {
-  time_t now = time(nullptr);
-  struct tm timeinfo;
-  localtime_r(&now, &timeinfo);
-  char buf[25];
-  sprintf(buf, "%02d/%02d/%04d %02d:%02d:%02d",
-          timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900,
-          timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-  return String(buf);
-}
+// -----------------------------------------------------------------------------
+// Variáveis globais para controle das animações idle
+enum IdleAnimType { SPIRAL, SNAKE };
+IdleAnimType currentIdleAnim;
+bool idleAnimActive = false;
 
-// Carrega o ranking do SPIFFS usando RAII com unique_ptr para buffer
-void loadRanking() {
-  rankingCount = 0;  // "Limpa" o ranking definindo o contador como zero
-  if (SPIFFS.exists(RANKING_FILE)) {
-    File file = SPIFFS.open(RANKING_FILE, "r");
-    if (file) {
-      size_t size = file.size();
-      std::unique_ptr<char[]> buf(new char[size]);
-      file.readBytes(buf.get(), size);
-      DynamicJsonDocument doc(512); // Tamanho ajustado conforme necessário
-      DeserializationError error = deserializeJson(doc, buf.get());
-      if (!error && doc.is<JsonArray>()) {
-        JsonArray arr = doc.as<JsonArray>();
-        for (JsonObject obj : arr) {
-          if (rankingCount < MAX_RANKING) {
-            ranking[rankingCount].datetime = obj["datetime"].as<String>();
-            ranking[rankingCount].score = obj["score"];
-            rankingCount++;
-          }
-        }
-      }
-      file.close();
-    }
-  }
-}
+// Para a animação Spiral:
+bool spiralAnimRunning = false;
+unsigned long spiralAnimStart = 0;
+size_t spiralIndex = 0;
 
-// Salva o ranking no SPIFFS; a memória do DynamicJsonDocument será liberada ao sair do escopo
-void saveRanking() {
-  DynamicJsonDocument doc(512);
-  JsonArray arr = doc.to<JsonArray>();
-  for (uint8_t i = 0; i < rankingCount; i++) {
-    JsonObject obj = arr.createNestedObject();
-    obj["datetime"] = ranking[i].datetime;
-    obj["score"] = ranking[i].score;
-  }
-  File file = SPIFFS.open(RANKING_FILE, "w");
-  if (file) {
-    serializeJson(doc, file);
-    file.close();
-  }
-}
-
-// Atualiza o ranking, mantendo somente os 10 melhores resultados
-void updateRanking(uint16_t newScore) {
-  RankingEntry newEntry;
-  newEntry.datetime = formatDateTime();
-  newEntry.score = newScore;
-
-  // Se ainda houver espaço, adiciona a nova entrada
-  if (rankingCount < MAX_RANKING) {
-    ranking[rankingCount] = newEntry;
-    rankingCount++;
-  } else {
-    // Se o ranking estiver cheio, substitui a entrada com a menor pontuação, se o novo resultado for melhor
-    int lowestIndex = 0;
-    for (int i = 1; i < rankingCount; i++) {
-      if (ranking[i].score < ranking[lowestIndex].score) {
-        lowestIndex = i;
-      }
-    }
-    if (newScore > ranking[lowestIndex].score) {
-      ranking[lowestIndex] = newEntry;
-    }
-  }
-  
-  // Ordena o array (bubble sort simples, pois MAX_RANKING é pequeno)
-  for (int i = 0; i < rankingCount - 1; i++) {
-    for (int j = 0; j < rankingCount - i - 1; j++) {
-      if (ranking[j].score < ranking[j + 1].score) {
-        RankingEntry temp = ranking[j];
-        ranking[j] = ranking[j + 1];
-        ranking[j + 1] = temp;
-      }
-    }
-  }
-  
-  saveRanking();
-}
+// Para a animação Snake:
+bool snakeAnimRunning = false;
+unsigned long snakeAnimStart = 0;
+size_t snakeIndex = 0;
 
 // ========================= Funções para Manipulação dos Relés =========================
 // Liga todos os relés de todos os módulos
@@ -206,27 +97,18 @@ void turnOnAllRelays() {
   for (uint8_t mod = 1; mod <= NUM_MODULES; mod++) {
     for (uint8_t r = 1; r <= RELAYS_PER_MODULE; r++) {
       relays.SetRelay(r, SERIAL_RELAY_ON, mod);
-      vTaskDelay(10 / portTICK_PERIOD_MS);
+      vTaskDelay(20 / portTICK_PERIOD_MS);
     }
   }
 }
 
 // Desliga todos os relés de todos os módulos
-void resetRelays() {
+void turnOffAllRelays() {
   for (uint8_t mod = 1; mod <= NUM_MODULES; mod++) {
     for (uint8_t r = 1; r <= RELAYS_PER_MODULE; r++) {
       relays.SetRelay(r, SERIAL_RELAY_OFF, mod);
+      vTaskDelay(20 / portTICK_PERIOD_MS);
     }
-  }
-}
-
-// Animação de fim: liga todos os relés e depois desliga, 3 vezes.
-void playEndAnimation() {
-  for (int i = 0; i < 3; i++) {
-    turnOnAllRelays();
-    vTaskDelay(500 / portTICK_PERIOD_MS);
-    resetRelays();
-    vTaskDelay(500 / portTICK_PERIOD_MS);
   }
 }
 
@@ -241,13 +123,11 @@ void triggerCountdown() {
 
 // ========================= Função para Iniciar o Jogo =========================
 void startGame() {
+  gameState = 1; // Jogo em andamento
   score = 0;
   gameRunning = true;
   gameStartTime = millis();
-  resetRelays();
-  vTaskDelay(500 / portTICK_PERIOD_MS);
   nextRound();
-  gameState = 1; // Jogo em andamento
 }
 
 // ========================= Função para Gerar a Próxima Rodada =========================
@@ -278,7 +158,7 @@ void nextRound() {
 void endGame() {
   gameRunning = false;
   targetActive = false;
-  resetRelays();
+  turnOffAllRelays();
   Serial.printf("Fim do jogo! Pontuação final: %d\n", score);
   gameState = 2; // Tela de pontuação final
   stateChangeTime = millis();
@@ -286,6 +166,9 @@ void endGame() {
 
 // ========================= Atualiza o Estado do Jogo =========================
 void updateGameState() {
+  if(gameState > 1) {
+    animationStatus = false;
+  }
   // Durante o jogo (estado 1), se o tempo expirou, transita para o estado 5 (fim com relés acesos)
   if (gameState == 1 && (millis() - gameStartTime >= gameDuration)) {
     turnOnAllRelays();
@@ -294,14 +177,13 @@ void updateGameState() {
   }
   // No estado 5, após 3 segundos, desliga os relés e passa para a tela de pontuação final (estado 2)
   else if (gameState == 5 && (millis() - stateChangeTime >= 3000)) {
-    resetRelays();
+    turnOffAllRelays();
     Serial.printf("Fim do jogo! Pontuação final: %d\n", score);
     gameState = 2;
     stateChangeTime = millis();
   }
   // Na tela de pontuação final (estado 2), após 5 segundos, transita para ranking (estado 3)
   else if (gameState == 2 && (millis() - stateChangeTime >= 5000)) {
-    updateRanking(score);
     gameState = 3;
     stateChangeTime = millis();
   }
@@ -309,105 +191,8 @@ void updateGameState() {
   else if (gameState == 3 && (millis() - stateChangeTime >= 10000)) {
     gameState = 0;
     score = 0;
-    animationEnabled = geralAnimationEnabled;
+    animationStatus = animationEnabled;
   }
-}
-
-// ========================= SSE: Envia Atualizações para o Front-End =========================
-void sendSSEUpdate() {
-  DynamicJsonDocument doc(512);
-  doc["score"] = score;
-  doc["state"] = gameState;
-  
-  if (gameState == 1) {
-    unsigned long elapsed = millis() - gameStartTime;
-    int timeRemaining = (elapsed >= gameDuration) ? 0 : (gameDuration - elapsed) / 1000;
-    doc["timeRemaining"] = timeRemaining;
-  } else {
-    doc["timeRemaining"] = 20;
-  }
-  
-  // Envia comando de áudio conforme o estado:
-  if (gameState == 4) {
-    doc["audio"] = "countdown";
-  } else if (gameState == 5) {
-    doc["audio"] = "end";
-  }
-  
-  // Se estiver na tela de ranking, inclui o ranking no JSON
-  if (gameState == 3) {
-    JsonArray rankArr = doc.createNestedArray("ranking");
-    int idx = 1;
-    for (auto &entry : ranking) {
-      JsonObject obj = rankArr.createNestedObject();
-      obj["index"] = idx;
-      obj["datetime"] = entry.datetime;
-      obj["score"] = entry.score;
-      idx++;
-    }
-  }
-  
-  String data;
-  serializeJson(doc, data);
-  events.send(data.c_str(), "message", millis());
-}
-
-// ========================= Endpoints da API =========================
-void handleStartGame(AsyncWebServerRequest *request) {
-  triggerCountdown();
-  String response = "{\"status\":\"Countdown started\",\"score\":" + String(score) + "}";
-  request->send(200, "application/json", response);
-}
-
-void handleGameStatus(AsyncWebServerRequest *request) {
-  DynamicJsonDocument doc(256);
-  doc["score"] = score;
-  doc["state"] = gameState;
-  if (gameState == 1) {
-    unsigned long elapsed = millis() - gameStartTime;
-    int timeRemaining = (elapsed >= gameDuration) ? 0 : (gameDuration - elapsed) / 1000;
-    doc["timeRemaining"] = timeRemaining;
-  } else {
-    doc["timeRemaining"] = 0;
-  }
-  String output;
-  serializeJson(doc, output);
-  request->send(200, "application/json", output);
-}
-
-void handleRanking(AsyncWebServerRequest *request) {
-  DynamicJsonDocument doc(512);
-  JsonArray arr = doc.to<JsonArray>();
-  for (uint8_t i = 0; i < rankingCount; i++) {
-    JsonObject obj = arr.createNestedObject();
-    obj["index"] = i + 1;
-    obj["datetime"] = ranking[i].datetime;
-    obj["score"] = ranking[i].score;
-  }
-  String output;
-  serializeJson(doc, output);
-  request->send(200, "application/json", output);
-}
-
-void handleSendCommand(AsyncWebServerRequest *request) {
-  if (!request->hasParam("plain", true)) {
-    request->send(400, "application/json", "{\"error\":\"No body received\"}");
-    return;
-  }
-  AsyncWebParameter* p = request->getParam("plain", true);
-  String body = p->value();
-  
-  DynamicJsonDocument doc(256);
-  DeserializationError error = deserializeJson(doc, body);
-  if (error) {
-    request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
-    return;
-  }
-  
-  String command = doc["command"];
-  processCommand(command.c_str());
-  String response = "{\"status\":\"Command executed\",\"command\":\"" + command + "\"}";
-  request->send(200, "application/json", response);
 }
 
 // ========================= Processamento de Comandos (Serial) =========================
@@ -467,78 +252,66 @@ void processCommand(const char *cmd) {
   }
 }
 
+// ========================= Função para Processamento dos Botões =========================
+void setButtonsToResponse() {
+  for (int i = 0; i < NUM_BUTTONS; i++) {
+    bool currentState = digitalRead(buttonPins[i]);
+    if (lastButtonStates[i] == LOW && currentState == HIGH) {
+      vTaskDelay(50 / portTICK_PERIOD_MS);
+      if (digitalRead(buttonPins[i]) == HIGH) {
+        uint8_t buttonPressed = i + 1;
+        Serial.printf("Botão pressionado: %d\n", buttonPressed);
+        if (targetActive && buttonPressed == currentTarget.correctButton) {
+          score++;
+          Serial.printf("Resposta correta! Pontuação: %d\n", score);
+          relays.SetRelay(currentTarget.relay, SERIAL_RELAY_OFF, currentTarget.module);
+          targetActive = false;
+          waitingNextRound = true;
+          nextRoundTime = millis() + 300;
+        } else {
+          Serial.println(F("Resposta incorreta."));
+        }
+      }
+    }
+    lastButtonStates[i] = currentState;
+  }
+}
+
+// ========================= Função para Contagem Regressiva =========================
+void handleCountdown() {
+  unsigned long elapsed = millis() - countdownStartTime;
+  if (elapsed < 3000) {
+    // Durante a contagem, os relés piscam: 500ms ligados, 500ms apagados
+    if ((elapsed % 1000) < 500) {
+      turnOnAllRelays();
+    } else {
+      turnOffAllRelays();
+    }
+  } else {
+    // Ao fim dos 3 segundos, apaga todos os relés e inicia o jogo
+    turnOffAllRelays();
+    startGame(); // Muda para estado 1 e registra gameStartTime
+  }
+}
+
 // ========================= Task: Lógica do Jogo =========================
 void gameLogicTask(void * parameter) {
   for (;;) {
     updateGameState();
     
-    // Se o jogo estiver idle, verifica se o pino start (físico) foi pressionado para disparar o countdown
-    if (gameState == 0) {
-      if (digitalRead(startButtonPin) == LOW) { // INPUT_PULLUP: pressionado = LOW
-        triggerCountdown();
-        vTaskDelay(200 / portTICK_PERIOD_MS); // Debounce
-      }
-    }
-    
     // Enquanto o jogo estiver idle e animações estiverem habilitadas, executa animações
-    if (gameState == 0 && animationEnabled) {
-      for (uint8_t mod = 1; mod <= NUM_MODULES; mod++) {
-        idleAnimation(mod);
-      }
+    if (gameState == 0 && animationStatus) {
+      updateIdleAnimation();
     }
     
     // Durante o jogo (estado 1), processa os botões para respostas
     if (gameState == 1) {
-      for (int i = 0; i < NUM_BUTTONS; i++) {
-        bool currentState = digitalRead(buttonPins[i]);
-        if (lastButtonStates[i] == LOW && currentState == HIGH) {
-          vTaskDelay(50 / portTICK_PERIOD_MS);
-          if (digitalRead(buttonPins[i]) == HIGH) {
-            uint8_t buttonPressed = i + 1;
-            Serial.printf("Botão pressionado: %d\n", buttonPressed);
-            if (targetActive && buttonPressed == currentTarget.correctButton) {
-              score++;
-              Serial.printf("Resposta correta! Pontuação: %d\n", score);
-              relays.SetRelay(currentTarget.relay, SERIAL_RELAY_OFF, currentTarget.module);
-              targetActive = false;
-              waitingNextRound = true;
-              nextRoundTime = millis() + 300;
-            } else {
-              Serial.println(F("Resposta incorreta."));
-            }
-          }
-        }
-        lastButtonStates[i] = currentState;
-      }
+      setButtonsToResponse();
     }
     
     // Processa a contagem regressiva (estado 4)
     if (gameState == 4) {
-      unsigned long elapsed = millis() - countdownStartTime;
-      if (elapsed < 3000) {
-        // Durante a contagem, os relés piscam: 500ms ligados, 500ms apagados
-        if ((elapsed % 1000) < 500) {
-          for (uint8_t mod = 1; mod <= NUM_MODULES; mod++) {
-            for (uint8_t r = 1; r <= RELAYS_PER_MODULE; r++) {
-              relays.SetRelay(r, SERIAL_RELAY_ON, mod);
-            }
-          }
-        } else {
-          for (uint8_t mod = 1; mod <= NUM_MODULES; mod++) {
-            for (uint8_t r = 1; r <= RELAYS_PER_MODULE; r++) {
-              relays.SetRelay(r, SERIAL_RELAY_OFF, mod);
-            }
-          }
-        }
-      } else {
-        // Ao fim dos 3 segundos, apaga todos os relés e inicia o jogo
-        for (uint8_t mod = 1; mod <= NUM_MODULES; mod++) {
-          for (uint8_t r = 1; r <= RELAYS_PER_MODULE; r++) {
-            relays.SetRelay(r, SERIAL_RELAY_OFF, mod);
-          }
-        }
-        startGame(); // Muda para estado 1 e registra gameStartTime
-      }
+      handleCountdown();
     }
     
     // Processa a próxima rodada se agendada
@@ -547,165 +320,136 @@ void gameLogicTask(void * parameter) {
       nextRound();
     }
     
-    // Verifica o pino de toggle para alternar animação idle
-    bool currentToggleState = digitalRead(togglePin);
-    if (lastToggleState == LOW && currentToggleState == HIGH) {
-      animationEnabled = !animationEnabled;
-      geralAnimationEnabled = animationEnabled;
-      Serial.printf("Animação %s\n", animationEnabled ? "ativada" : "desativada");
-      vTaskDelay(100 / portTICK_PERIOD_MS);
-    }
-    lastToggleState = currentToggleState;
-    
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
 
-// ========================= Novas Animações Visuais =========================
+// -----------------------------------------------------------------------------
+// Helper: Converte número de LED (1 a 8) para módulo e relé.
+// LEDs 1-4: módulo 1, relé = LED; LEDs 5-8: módulo 2, relé = LED - 4.
+void setLed(uint8_t led, byte state) {
+  if (led >= 1 && led <= 4) {
+    relays.SetRelay(led, state, 1);
+  } else if (led >= 5 && led <= 8) {
+    relays.SetRelay(led - 4, state, 2);
+  }
+}
 
-// Estrutura para definir uma posição de relé (módulo e número do relé)
-struct RelayPosition {
-  uint8_t module;
-  uint8_t relay;
-};
-
-// Ordem para a animação de espiral (supondo que os 8 relés estejam dispostos em círculo)
-// Exemplo: Módulo 1: relé 1, Módulo 2: relé 1, Módulo 2: relé 2, Módulo 1: relé 2, etc.
-const RelayPosition spiralOrder[] = {
-  {1, 1},
-  {2, 1},
-  {2, 2},
-  {1, 2},
-  {1, 3},
-  {2, 3},
-  {2, 4},
-  {1, 4}
-};
-const size_t spiralOrderCount = sizeof(spiralOrder) / sizeof(spiralOrder[0]);
-
-// Ordem para a animação de snake (cobrinha), percorrendo os 8 relés em sequência
-const RelayPosition snakeOrder[] = {
-  {1, 1},
-  {1, 2},
-  {1, 3},
-  {1, 4},
-  {2, 4},
-  {2, 3},
-  {2, 2},
-  {2, 1}
-};
-const size_t snakeOrderCount = sizeof(snakeOrder) / sizeof(snakeOrder[0]);
-
-// Variáveis de controle para a animação de espiral
-bool spiralAnimRunning = false;
-unsigned long spiralAnimStart = 0;
-size_t spiralIndex = 0;
-
-// Variáveis de controle para a animação de snake
-bool snakeAnimRunning = false;
-unsigned long snakeAnimStart = 0;
-size_t snakeIndex = 0;
-
-// Variável para escolher qual animação idle usar (0 = Spiral, 1 = Snake)
-int idleAnimType = -1;
-
-// Função para iniciar a animação de espiral
+// -----------------------------------------------------------------------------
+// Funções para animação "Spiral"
+// Inicia a animação Spiral: reseta o estado e desliga todos os LEDs.
 void startSpiralAnimation() {
   spiralAnimRunning = true;
   spiralAnimStart = millis();
   spiralIndex = 0;
+  turnOffAllRelays();
+  Serial.println("Spiral animation iniciada");
 }
 
-// Atualiza a animação de espiral de forma não bloqueante
+// Atualiza a animação Spiral de forma não bloqueante.
+// A cada 300ms, acende o próximo LED da sequência e desliga o anterior para criar um efeito de trilha.
 void updateSpiralAnimation() {
   if (!spiralAnimRunning) return;
   unsigned long now = millis();
-  // Define um tempo de 200ms por etapa
-  if (now - spiralAnimStart >= spiralIndex * 200UL) {
-    // Desliga o relé anterior (se houver)
+  // Intervalo de 300ms por passo
+  if (now - spiralAnimStart >= spiralIndex * 300UL) {
     if (spiralIndex > 0) {
-      RelayPosition prev = spiralOrder[spiralIndex - 1];
-      relays.SetRelay(prev.relay, SERIAL_RELAY_OFF, prev.module);
-    } else {
-      // Opcional: garante que todos estejam desligados no início
-      resetRelays();
+      // Desliga o LED anterior para criar o efeito de "trilho"
+      setLed(spiralSequence[spiralIndex - 1], SERIAL_RELAY_OFF);
     }
-    // Se ainda há etapas, liga o relé atual
-    if (spiralIndex < spiralOrderCount) {
-      RelayPosition current = spiralOrder[spiralIndex];
-      relays.SetRelay(current.relay, SERIAL_RELAY_ON, current.module);
+    if (spiralIndex < spiralSequenceCount) {
+      setLed(spiralSequence[spiralIndex], SERIAL_RELAY_ON);
       spiralIndex++;
     } else {
-      // Acabou a sequência; apaga tudo e encerra a animação
-      resetRelays();
-      spiralAnimRunning = false;
+      // Após a última etapa, aguarda 500ms e encerra a animação
+      if (now - spiralAnimStart >= spiralSequenceCount * 300UL + 500) {
+        setLed(spiralSequence[spiralSequenceCount - 1], SERIAL_RELAY_OFF);
+        spiralAnimRunning = false;
+        Serial.println("Spiral animation finalizada");
+      }
     }
   }
 }
 
-// Função para iniciar a animação snake
+// -----------------------------------------------------------------------------
+// Funções para animação "Snake"
+// Inicia a animação Snake: reseta o estado e desliga todos os LEDs.
 void startSnakeAnimation() {
   snakeAnimRunning = true;
   snakeAnimStart = millis();
   snakeIndex = 0;
+  turnOffAllRelays();
+  Serial.println("Snake animation iniciada");
 }
 
-// Atualiza a animação snake de forma não bloqueante
+// Atualiza a animação Snake de forma não bloqueante.
 void updateSnakeAnimation() {
   if (!snakeAnimRunning) return;
   unsigned long now = millis();
-  // Define 200ms por etapa
-  if (now - snakeAnimStart >= snakeIndex * 200UL) {
-    // Desliga o relé anterior
+  // Intervalo de 300ms por etapa
+  if (now - snakeAnimStart >= snakeIndex * 300UL) {
     if (snakeIndex > 0) {
-      RelayPosition prev = snakeOrder[snakeIndex - 1];
-      relays.SetRelay(prev.relay, SERIAL_RELAY_OFF, prev.module);
-    } else {
-      resetRelays();
+      setLed(snakeSequence[snakeIndex - 1], SERIAL_RELAY_OFF);
     }
-    // Se ainda há etapas, liga o relé atual
-    if (snakeIndex < snakeOrderCount) {
-      RelayPosition current = snakeOrder[snakeIndex];
-      relays.SetRelay(current.relay, SERIAL_RELAY_ON, current.module);
+    if (snakeIndex < snakeSequenceCount) {
+      setLed(snakeSequence[snakeIndex], SERIAL_RELAY_ON);
       snakeIndex++;
     } else {
-      // Finaliza a animação
-      resetRelays();
-      snakeAnimRunning = false;
+      if (now - snakeAnimStart >= snakeSequenceCount * 300UL + 500) {
+        setLed(snakeSequence[snakeSequenceCount - 1], SERIAL_RELAY_OFF);
+        snakeAnimRunning = false;
+        Serial.println("Snake animation finalizada");
+      }
     }
   }
 }
 
-// Função idleAnimation integrada para as novas animações visuais.
-// Se idleAnimType for -1, escolhe aleatoriamente entre 0 (spiral) e 1 (snake).
-// Em seguida, chama a função de atualização correspondente.
-void idleAnimation(uint8_t module) {
-  if (idleAnimType < 0) {
-    idleAnimType = random(0, 2); // 0 ou 1
-    // Inicia a animação escolhida (apenas uma vez; a animação é global para o modo idle)
-    if (idleAnimType == 0) {
-      startSpiralAnimation();
-    } else {
-      startSnakeAnimation();
-    }
+// -----------------------------------------------------------------------------
+// Função para escolher aleatoriamente uma animação idle
+void chooseIdleAnimation() {
+  currentIdleAnim = (IdleAnimType) random(0, 2); // Escolhe 0 ou 1
+  idleAnimActive = true;
+  // Inicia a animação escolhida
+  if (currentIdleAnim == SPIRAL) {
+    startSpiralAnimation();
+  } else {
+    startSnakeAnimation();
   }
-  // Chama a atualização da animação escolhida
-  if (idleAnimType == 0) {
+}
+
+// Atualiza a animação idle com base no tipo escolhido
+void updateIdleAnimation() {
+  if (!idleAnimActive) {
+    chooseIdleAnimation();
+  }
+  if (currentIdleAnim == SPIRAL) {
     updateSpiralAnimation();
-    // Se a animação terminou, reseta para nova escolha
-    if (!spiralAnimRunning) {
-      idleAnimType = -1;
-    }
-  } else if (idleAnimType == 1) {
+    if (!spiralAnimRunning) idleAnimActive = false;
+  } else { // SNAKE
     updateSnakeAnimation();
-    if (!snakeAnimRunning) {
-      idleAnimType = -1;
-    }
+    if (!snakeAnimRunning) idleAnimActive = false;
   }
 }
 
-void printFreeMemory() {
-  Serial.printf("Free heap: %d bytes\n", ESP.getFreeHeap());
+// Função para tratar os eventos do WebSocket
+void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
+  void *arg, uint8_t *data, size_t len) {
+    if (type == WS_EVT_DATA) {
+      AwsFrameInfo * info = (AwsFrameInfo*)arg;
+      if(info->final && info->index == 0 && info->len == len) {
+        // Converte os dados recebidos para uma String
+        String msg = "";
+        for (size_t i = 0; i < len; i++) {
+          msg += (char)data[i];
+        }
+        Serial.print("Mensagem recebida: ");
+        Serial.println(msg);
+        // Verifica se a mensagem é "start-game" para iniciar o jogo
+        if (msg == "start-game") {
+          triggerCountdown();
+        }
+      }
+    }
 }
 
 // ========================= Setup =========================
@@ -718,11 +462,6 @@ void setup() {
     Serial.println(F("Falha ao montar SPIFFS"));
     return;
   }
-
-  loadRanking();
-  
-  // Configura a hora via NTP (ajuste o fuso conforme necessário)
-  configTime(-3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
   
   // Conecta ao WiFi
   WiFi.begin(ssid, password);
@@ -735,30 +474,20 @@ void setup() {
   Serial.print("IP do ESP: ");
   Serial.println(WiFi.localIP().toString());
   
-  setupFileServer();
-  
-  // Registra os endpoints da API
-  server.on("/send-command", HTTP_POST, handleSendCommand);
-  server.on("/start-game", HTTP_POST, handleStartGame);
-  server.on("/game-status", HTTP_GET, handleGameStatus);
-  server.on("/ranking", HTTP_GET, handleRanking);
-  
-  // Adiciona o handler para SSE
-  server.addHandler(&events);
-  
+  // Define o evento do WebSocket
+  ws.onEvent(onWsEvent);
+  // Adiciona o handler do WebSocket no servidor
+  server.addHandler(&ws);
+
+  // Inicia o servidor
   server.begin();
   Serial.println(F("Servidor web iniciado."));
 
-  // Configura o pino do botão de start físico
-  pinMode(startButtonPin, INPUT_PULLUP);
-  
   // Configura os pinos dos botões de controle
   for (int i = 0; i < NUM_BUTTONS; i++) {
     pinMode(buttonPins[i], INPUT_PULLUP);
     lastButtonStates[i] = digitalRead(buttonPins[i]);
   }
-  pinMode(togglePin, INPUT_PULLUP);
-  lastToggleState = digitalRead(togglePin);
   
   // Inicializa os módulos dos relés (desligados)
   for (uint8_t i = 1; i <= NUM_MODULES; i++) {
@@ -770,7 +499,7 @@ void setup() {
   gameState = 0;
   gameRunning = false;
   
-  resetRelays();
+  turnOffAllRelays();
 
   // Cria a task para a lógica do jogo
   xTaskCreate(
@@ -785,15 +514,17 @@ void setup() {
 
 // ========================= Loop Principal =========================
 void loop() {
-  // O AsyncWebServer é não bloqueante, portanto não precisamos de server.handleClient()
-  // Envia atualizações SSE a cada ciclo para o front-end
-  sendSSEUpdate();
+  // Cria o documento JSON com os dados dinâmicos
+  DynamicJsonDocument doc(128);
+  doc["score"] = score;
+  doc["state"] = gameState;
+  
+  // Serializa o JSON para uma String
+  String data;
+  serializeJson(doc, data);
 
-  // Verifica o heap livre a cada 5 segundos
-  if (millis() - lastPrintTime > 5000) {
-    printFreeMemory();
-    lastPrintTime = millis();
-  }
+  // Envia o JSON para todos os clientes conectados via WebSocket
+  ws.textAll(data);
 
-  vTaskDelay(500 / portTICK_PERIOD_MS);
+  vTaskDelay(100 / portTICK_PERIOD_MS);
 }

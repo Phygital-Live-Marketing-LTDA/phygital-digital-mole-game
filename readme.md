@@ -1,7 +1,1 @@
-npm install
-npx gulp build && pio run -t uploadfs
-
-// OFFLINE
-node server.js
-
-http://127.0.0.1:3000/
+php -S 192.168.0.246:8000
