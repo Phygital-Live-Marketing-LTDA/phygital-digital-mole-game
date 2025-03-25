@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Jogo dos Relés ESP</title>
+  <title><?php echo $data['titulo']; ?></title>
   <meta name="referrer" content="no-referrer">
-  <script src="assets/js/tailwind.js"></script>
+  <script src="/assets/js/tailwind.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
   <div class="bg-white shadow-lg rounded-lg p-8 max-w-md w-full">
@@ -37,10 +37,18 @@
     
     <!-- Tela de ranking (exibida por 10 segundos) -->
     <div id="rankingScreen" class="hidden flex flex-col items-center">
-      <h2 class="text-2xl font-bold mb-4">Ranking Top 10</h2>
-      <ol id="rankingList" class="list-decimal text-left w-full"></ol>
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posição</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pontuação</th>
+          </tr>
+        </thead>
+        <tbody id="rankingList" class="bg-white divide-y divide-gray-200"></tbody>
+      </table>
     </div>
   </div>
 </body>
-<script src="assets/js/index.js"></script>
+<script src="assets/js/game.js"></script>
 </html>

@@ -7,6 +7,7 @@
     */
 const ESP_URL = "192.168.0.117"; // Ajuste conforme necessário
 let audioPlayed = false;
+let lastScore = null;
 const startButton = document.getElementById('startButton');
 const preGameDiv = document.getElementById('preGame');
 const runningGameDiv = document.getElementById('runningGame');
@@ -65,15 +66,53 @@ startButton.addEventListener('click', () => {
     playAudio('countdown');
 });
 
-const handleRanking = () => {
-    rankingListElem.innerHTML = "";
-    // Assume que o servidor envie um array em data.ranking
-    [].forEach((entry, index) => {
-        const li = document.createElement('li');
-        li.classList.add("mb-2", "p-2", "bg-gray-200", "rounded");
-        li.innerText = (index + 1) + "º - " + entry.datetime + " - " + entry.score + " pontos";
-        rankingListElem.appendChild(li);
+const handleRanking = (data) => {
+    rankingListElem.innerHTML = ''; // Limpa o conteúdo anterior
+    data.forEach((item, index) => {
+        const linha = document.createElement('tr');
+
+        // Coluna de posição
+        const posicao = document.createElement('td');
+        posicao.className = 'px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900';
+        posicao.textContent = index + 1;
+        linha.appendChild(posicao);
+
+        // Coluna de nome
+        const name = document.createElement('td');
+        name.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
+        name.textContent = item.name;
+        linha.appendChild(name);
+
+        // Coluna de pontuação
+        const score = document.createElement('td');
+        score.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
+        score.textContent = item.score;
+        linha.appendChild(score);
+
+        rankingListElem.appendChild(linha);
     });
+};
+
+const storeRanking = () => {
+    fetch('./ranking', { // Ajuste a URL conforme necessário
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            name: '-',
+            score: lastScore
+        })
+    })
+        .then(response => response.json())
+        .then(result => {
+            if (result.status === 'success') {
+                handleRanking(JSON.parse(result.ranking));
+            } else {
+                console.error('Erro ao salvar ranking:', result.message);
+            }
+        })
+        .catch(error => console.error('Erro na requisição:', error));
 }
 
 ws.onmessage = function (event) {
@@ -98,13 +137,16 @@ ws.onmessage = function (event) {
             runningGameDiv.classList.add('hidden');
             scoreScreenDiv.classList.remove('hidden');
             rankingScreenDiv.classList.add('hidden');
+            if (lastScore != data.score) {
+                lastScore = data.score;
+                storeRanking();
+            }
             finalScoreElem.innerText = "Pontuação final: " + data.score;
         } else if (data.state === 3) {
             preGameDiv.classList.add('hidden');
             runningGameDiv.classList.add('hidden');
             scoreScreenDiv.classList.add('hidden');
             rankingScreenDiv.classList.remove('hidden');
-            handleRanking();
             startButton.disabled = false;
         } else if (data.state === 4) {
             preGameDiv.classList.add('hidden');
