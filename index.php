@@ -36,6 +36,11 @@ if ($method === 'GET') {
             $controller = new RankingController();
             $controller->store();
             break;
+        case '/leads':
+            require_once 'controllers/api/LeadsController.php';
+            $controller = new LeadsController();
+            $controller->store();
+            break;
         default:
             http_response_code(404);
             echo "Página não encontrada.";

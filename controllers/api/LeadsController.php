@@ -1,36 +1,33 @@
 <?php
-require_once 'services/api/ApiRankingService.php';
-require_once 'services/RankingService.php';
+require_once 'services/api/ApiLeadsService.php';
 
-class RankingController {
+class LeadsController {
     public function store() {
         $json = file_get_contents('php://input');
         $data = json_decode($json, true);
 
         // Verifica se os dados foram recebidos corretamente
-        if (!$data || !isset($data['leads_id']) || !isset($data['score'])) {
+        if (!$data || !isset($data['nome']) || !isset($data['telefone']) || !isset($data['interesse'])) {
             http_response_code(400);
             echo json_encode(['error' => 'Dados inválidos ou incompletos.']);
             exit;
         }
 
         // Sanitiza os dados
-        $data['leads_id']      = filter_var($data['leads_id'], FILTER_SANITIZE_STRING);
-        $data['score']         = filter_var($data['score'], FILTER_SANITIZE_STRING);
-        
+        $data['nome']      = filter_var($data['nome'], FILTER_SANITIZE_STRING);
+        $data['telefone']  = filter_var($data['telefone'], FILTER_SANITIZE_STRING);
+        // Converte o checkbox para 1 (true) ou 0 (false)
+        $data['interesse'] = $data['interesse'] ? 1 : 0;
+
         // Instancia o service e tenta salvar os dados
-        $apiRankingService = new ApiRankingService();
-        $result = $apiRankingService->saveData($data);
+        $apiLeadsService = new ApiLeadsService();
+        $result = $apiLeadsService->saveData($data);
         
         if ($result) {
-            $rankingService = new RankingService();
-            $rankingServiceGetData = $rankingService->getData();
-            file_put_contents("./storage/ranking/last-update.txt", time());
-
             echo json_encode([
                 'status' => 'success',
                 'message' => 'Dados salvos com sucesso!',
-                'ranking' => json_encode($rankingServiceGetData['ranking'])
+                'id' => $result
             ]);
         } else {
             echo json_encode([

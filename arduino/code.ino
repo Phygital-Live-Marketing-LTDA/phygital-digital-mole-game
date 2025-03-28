@@ -5,6 +5,8 @@
 #include <ArduinoJson.h>
 
 // ========================= Configurações Gerais =========================
+unsigned long previousMillis = 0;
+bool state = false; // Estado atual dos relés
 unsigned long lastWsUpdate = 0; // declare no início do código
 const int NUM_BUTTONS = 8;
 int buttonPins[NUM_BUTTONS] = {14, 27, 26, 25, 33, 32, 35, 34};
@@ -139,42 +141,26 @@ void updateGameState() {
   }
 }
 
-void setButtonsToResponse() {
-  for (int i = 0; i < NUM_BUTTONS; i++) {
-    bool currentState = digitalRead(buttonPins[i]);
-    if (lastButtonStates[i] == LOW && currentState == HIGH) {
-      delay(50); // Debounce simples
-      if (digitalRead(buttonPins[i]) == HIGH) {
-        uint8_t buttonPressed = i + 1;
-        Serial.printf("Botão pressionado: %d\n", buttonPressed);
-        if (targetActive && buttonPressed == currentTarget.correctButton) {
-          score++;
-          Serial.printf("Resposta correta! Pontuação: %d\n", score);
-          relays.SetRelay(currentTarget.relay, SERIAL_RELAY_OFF, currentTarget.module);
-          targetActive = false;
-          waitingNextRound = true;
-          nextRoundTime = millis() + 300;
-        } else {
-          Serial.println("Resposta incorreta.");
-        }
-      }
-    }
-    lastButtonStates[i] = currentState;
-  }
-}
-
 void handleCountdown() {
   unsigned long elapsed = millis() - countdownStartTime;
+  
   if (elapsed < 3000) {
-    // Durante a contagem, os relés piscam a cada 500ms
-    if ((elapsed % 1000) < 500) {
-      turnOnAllRelays();
-    } else {
-      turnOffAllRelays();
+    // Verifica em qual fase do ciclo de 1000ms estamos (primeiros 500ms ou últimos 500ms)
+    unsigned long phase = (elapsed / 500) % 2; // 0 para ligar, 1 para desligar
+
+    // Somente altera o estado se ele for diferente do último estado registrado
+    static unsigned long lastPhase = 99; // Inicializa com um valor fora do esperado
+    if (phase != lastPhase) {
+      lastPhase = phase; // Atualiza o último estado
+
+      if (phase == 0) {
+        turnOnAllRelays();  // Liga os relés
+      } else {
+        turnOffAllRelays(); // Desliga os relés
+      }
     }
   } else {
-    turnOffAllRelays();
-    startGame();
+    startGame(); // Após 3s, inicia o jogo
   }
 }
 
@@ -294,10 +280,58 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
   }
 }
 
+void taskWebSocket(void *pvParameters) {
+  while (true) {
+    if (millis() - lastWsUpdate >= 100) {
+      lastWsUpdate = millis();
+      DynamicJsonDocument doc(128);
+      doc["score"] = score;
+      doc["state"] = gameState;
+      doc["timer"] = (gameState == 1) ? (gameDuration - (millis() - gameStartTime)) / 1000
+                                      : (gameState == 4) ? (3000 - (millis() - countdownStartTime)) / 1000
+                                      : 0;
+      String data;
+      serializeJson(doc, data);
+      ws.textAll(data);
+    }
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+  }
+}
+
+void taskIdleAnimation(void *pvParameters) {
+  while (true) {
+    if (gameState == 0 && animationStatus) updateIdleAnimation();
+    vTaskDelay(50 / portTICK_PERIOD_MS);
+  }
+}
+
+void taskButtonRead(void *pvParameters) {
+  while (true) {
+    for (int i = 0; i < NUM_BUTTONS; i++) {
+      bool currentState = digitalRead(buttonPins[i]);
+      if (lastButtonStates[i] == LOW && currentState == HIGH) {
+        vTaskDelay(50 / portTICK_PERIOD_MS);  // Debounce
+        if (digitalRead(buttonPins[i]) == HIGH) {
+          uint8_t buttonPressed = i + 1;
+          if (targetActive && buttonPressed == currentTarget.correctButton) {
+            score++;
+            relays.SetRelay(currentTarget.relay, SERIAL_RELAY_OFF, currentTarget.module);
+            targetActive = false;
+            waitingNextRound = true;
+            nextRoundTime = millis() + 300;
+          }
+        }
+      }
+      lastButtonStates[i] = currentState;
+    }
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+  }
+}
+
 // ========================= Setup e Loop =========================
 void setup() {
   Serial.begin(115200);
-  delay(50);
+  delay(100);
   
   WiFi.begin(ssid, password);
   Serial.print("Conectando-se ao WiFi");
@@ -328,43 +362,18 @@ void setup() {
   gameRunning = false;
   turnOffAllRelays();
   animationStatus = animationEnabled;
+
+  xTaskCreatePinnedToCore(taskWebSocket, "WebSocket", 4096, NULL, 1, NULL, 0);
+  xTaskCreatePinnedToCore(taskIdleAnimation, "IdleAnimation", 2048, NULL, 1, NULL, 0);
+  xTaskCreatePinnedToCore(taskButtonRead, "ButtonRead", 2048, NULL, 1, NULL, 1);
 }
 
 void loop() {
   updateGameState();
-  
-  if (gameState == 0 && animationStatus)
-    updateIdleAnimation();
-  
-  if (gameState == 1)
-    setButtonsToResponse();
-  
-  if (gameState == 4)
-    handleCountdown();
-  
+  if (gameState == 4) handleCountdown();
   if (waitingNextRound && millis() >= nextRoundTime) {
     waitingNextRound = false;
     nextRound();
   }
-  
-  // Envia dados do jogo via WebSocket
-  if (millis() - lastWsUpdate >= 100) {  // envia a cada 100 ms
-    lastWsUpdate = millis();
-    DynamicJsonDocument doc(128);
-    doc["score"] = score;
-    doc["state"] = gameState;
-    // Calcular o timer de acordo com o estado
-    unsigned long remainingTime = 0;
-    if (gameState == 1) { // Durante o jogo
-      remainingTime = (gameDuration - (millis() - gameStartTime)) / 1000;
-    } else if (gameState == 4) { // Durante a contagem regressiva
-      remainingTime = (3000 - (millis() - countdownStartTime)) / 1000;
-    }
-    doc["timer"] = remainingTime;
-    String data;
-    serializeJson(doc, data);
-    ws.textAll(data);
-  }
-  
-  delay(10);
+  vTaskDelay(50 / portTICK_PERIOD_MS);
 }

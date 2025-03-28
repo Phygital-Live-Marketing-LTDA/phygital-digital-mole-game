@@ -40,3 +40,5 @@ temp/
 /js/json/passwords.json
 
 /data
+
+/storage/ranking/last-update.txt
