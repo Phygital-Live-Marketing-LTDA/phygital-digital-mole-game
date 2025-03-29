@@ -7,19 +7,17 @@
   <meta name="referrer" content="no-referrer">
   <script src="/assets/js/tailwind.js"></script>
 </head>
-<body class="bg-gray-100">
-  <div class="container mx-auto p-4">
-    <h1 class="text-3xl font-bold text-center mb-8"><?php echo $data['titulo']; ?></h1>
+<body class="bg-[url('/assets/images/bg.png')] bg-cover bg-center bg-no-repeat flex items-center justify-center h-screen w-screen overflow-hidden">
+<div class="fixed top-0">
+   <img src="/assets/images/ranking1.png" class="object-contain no-repeat" />
+</div>  
+<div class="fixed top-0 right-0">
+  <img src="/assets/images/ranking2.png" class="object-contain no-repeat h-[50vh]" />
+</div>
+<div class="container mx-auto p-4">
     <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posição</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pontuação</th>
-            </tr>
-          </thead>
-          <tbody id="rankingList" class="bg-white divide-y divide-gray-200"></tbody>
+      <table class="min-w-full divide-y ">
+          <tbody id="rankingList" class="bg-[url('/assets/images/input.png')] object-cover h-[1px] bg-no-repeat"></tbody>
         </table>
     </div>
   </div>
