@@ -7,42 +7,61 @@
   <meta name="referrer" content="no-referrer">
   <script src="/assets/js/tailwind.js"></script>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
-  <div class="bg-white shadow-lg rounded-lg p-8 max-w-md w-full">
-    <h1 class="text-3xl font-bold text-center mb-6">Jogo dos Relés ESP</h1>
+
+<style>
+  .divider td {
+    height: 4px;
+    padding: 0; /* remove padding para ajustar a altura */
+    background: url('/assets/images/input.png') no-repeat center;
+    background-size: cover;
+    border: none;
+  }
+</style>
+
+<body class="bg-[url('/assets/images/bg.png')] bg-cover bg-center bg-no-repeat flex items-center justify-center min-h-screen overflow-hidden">
     
     <!-- Tela pré-jogo (idle) -->
-    <div id="preGame" class="flex flex-col items-center gap-4">
-      <h1 class="text-3xl font-bold text-center mb-6">Cadastro</h1>
-      <form id="registrationForm" class="space-y-4">
+    <div id="preGame" class="w-screen h-screen flex flex-col justify-center bg-[url('/assets/images/bg.png')] bg-cover bg-center bg-no-repeat ">
+      
+    <div class="fixed top-20 left-1/2 -translate-x-1/2 object-contain items-center mx-auto">
+      <img src="/assets/images/umalogo.png"  class="h-[5vh]">
+    </div>
+      <form id="registrationForm" class="space-y-4 mx-12">
         <!-- Campo Nome -->
         <div>
-          <label for="nome" class="block text-sm font-medium text-gray-700">Nome</label>
-          <input type="text" id="nome" name="nome" placeholder="Seu nome"
-            class="mt-1 block w-full border border-gray-300 rounded-md p-2">
+          <input type="text" id="nome" name="nome" placeholder="Nome"
+            class="mt-1 bg-transparent w-full object-cover p-2 outline-none text-xl text-black placeholder-black">
+            <img src="/assets/images/input.png"  class="-mt-6 object-contain">
           <p id="nomeError" class="text-red-500 text-xs mt-1 hidden">Nome deve ter pelo menos 3 caracteres.</p>
         </div>
         
         <!-- Campo Telefone -->
         <div>
-          <label for="telefone" class="block text-sm font-medium text-gray-700">Telefone</label>
-          <input type="text" id="telefone" name="telefone" placeholder="(00) 00000-0000"
-            class="mt-1 block w-full border border-gray-300 rounded-md p-2">
+          <input type="number" id="telefone" name="telefone" placeholder="Telefone"
+          class="mt-1 bg-transparent w-full object-cover p-2 outline-none text-xl text-black placeholder-black">
+            <img src="/assets/images/input.png"  class="-mt-6 object-contain">
           <p id="telefoneError" class="text-red-500 text-xs mt-1 hidden">Telefone inválido.</p>
         </div>
         
+        <div>
+
+    
         <!-- Checkbox de Interesse -->
         <div class="flex items-center">
-          <input id="interesse" name="interesse" type="checkbox"
-            class="h-4 w-4 text-blue-600 border-gray-300 rounded">
-          <label for="interesse" class="ml-2 block text-sm text-gray-900">
+         
+          <label for="interesse" class="ml-2 mt-2 block text-sm text-gray-900 text-xl">
             Quero saber mais sobre a Phygital
           </label>
+
+          <input id="interesse" name="interesse" type="checkbox"
+            class="h-5 w-5 text-blue-600 border-black rounded mx-2 mt-2">
+        </div>
+        <img src="/assets/images/input.png"  class="-mt-3 object-contain">
+
         </div>
       </form>
-      <button id="startButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-        Iniciar Jogo
-      </button>
+      <img src="/assets/images/botao-iniciar.png" id="startButton" class="w-[90vw] object-contain -mt-4 mx-auto">
+     
     </div>
     
     <!-- Tela do countdown -->
@@ -63,8 +82,17 @@
     </div>
     
     <!-- Tela de ranking (exibida por 10 segundos) -->
-    <div id="rankingScreen" class="hidden flex flex-col items-center">
-      <table class="min-w-full divide-y divide-gray-200">
+
+    <div id="rankingScreen" class="hidden bg-[url('/assets/images/bg.png')] bg-cover bg-center bg-no-repeat flex items-center justify-center h-screen w-screen overflow-hidden">
+<div class="fixed top-0">
+   <img src="/assets/images/ranking1.png" class="object-contain no-repeat" />
+</div>  
+<div class="fixed top-0 right-0">
+  <img src="/assets/images/ranking2.png" class="object-contain no-repeat h-[50vh]" />
+</div>
+<div class="container mx-auto p-4">
+    <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posição</th>
@@ -76,6 +104,10 @@
       </table>
     </div>
   </div>
+</div>
+
+
+
 </body>
 <script src="assets/js/game.js"></script>
 </html>
