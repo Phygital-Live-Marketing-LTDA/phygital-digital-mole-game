@@ -1,28 +1,76 @@
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
-#include <time.h>
-#include "SerialRelay.h"
 #include <ArduinoJson.h>
+#include <Wire.h>
+
+// ===== Configurações do MCP23017 =====
+#define MCP_ADDRESS 0x20   // Endereço do MCP23017
+#define IODIRA 0x00        // Configura todos os pinos da porta A como saída
+#define OLATA  0x14        // Registrador de saída da porta A
+
+uint8_t currentOutput;     // Estado atual dos 8 pinos da porta A
+
+void writeBlockData(uint8_t reg, uint8_t data) {
+  Wire.beginTransmission(MCP_ADDRESS);
+  Wire.write(reg);
+  Wire.write(data);
+  Wire.endTransmission();
+  delay(10);
+}
+
+void initMCP23017() {
+  Wire.begin();
+  // Configura todos os 8 pinos da porta A como saída
+  Wire.beginTransmission(MCP_ADDRESS);
+  Wire.write(IODIRA);
+  Wire.write(0x00);  // 0 = saída para todos os pinos
+  Wire.endTransmission();
+  
+  // Inicializa com todos os relés desligados (relés ativos em nível baixo: 1 = desligado)
+  currentOutput = 0xFF;
+  writeBlockData(OLATA, currentOutput);
+}
+
+// Função para controlar um relé específico (relé 1 corresponde ao bit 7, relé 2 ao bit 6, ... relé 8 ao bit 0)
+void setRelay(uint8_t relay, bool state) {
+  if (relay < 1 || relay > 8) return;
+  uint8_t mask = 1 << (8 - relay);  // Mapeamento: relé 1 -> bit 7, relé 8 -> bit 0
+  if (state) {
+    // Liga o relé: ativa em nível baixo (limpa o bit)
+    currentOutput &= ~mask;
+  } else {
+    // Desliga o relé: seta o bit
+    currentOutput |= mask;
+  }
+  writeBlockData(OLATA, currentOutput);
+}
+
+void turnOnAllRelays() {
+  for (uint8_t r = 1; r <= 8; r++) {
+    setRelay(r, true);
+  }
+}
+
+void turnOffAllRelays() {
+  for (uint8_t r = 1; r <= 8; r++) {
+    setRelay(r, false);
+  }
+}
 
 // ========================= Configurações Gerais =========================
-unsigned long previousMillis = 0;
-bool state = false; // Estado atual dos relés
-unsigned long lastWsUpdate = 0; // declare no início do código
+unsigned long lastWsUpdate = 0;
 const int NUM_BUTTONS = 8;
 int buttonPins[NUM_BUTTONS] = {14, 27, 26, 25, 33, 32, 35, 34};
 bool lastButtonStates[NUM_BUTTONS];
 
-const uint8_t NUM_MODULES = 2;
-const uint8_t RELAYS_PER_MODULE = 4;
-
 unsigned long countdownStartTime = 0;
 bool animationStatus, animationEnabled = true;
 
-int gameState = 0;  // 0: Idle, 1: Jogo, 2: Pontuação Final, 3: Ranking, 4: Contagem Regressiva, 5: Fim (relés acesos)
+int gameState = 0;  // 0: Idle, 1: Jogo, 2: Pontuação Final, 3: Ranking, 4: Contagem Regressiva, 5: Fim (todos os relés acesos)
 bool gameRunning = false;
 unsigned long gameStartTime = 0;
 unsigned long stateChangeTime = 0;
-const unsigned long gameDuration = 21000; // 20 segundos
+const unsigned long gameDuration = 21000; // 21 segundos
 uint16_t score = 0;
 
 unsigned long nextRoundTime = 0;
@@ -35,35 +83,16 @@ const char *password = "Eventstag";
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
-// ========================= Controle dos Relés =========================
-SerialRelay relays(13, 12, NUM_MODULES);
-
 // ========================= Lógica do Jogo =========================
+// Neste exemplo, o jogo trabalha com 8 relés: o "alvo" é um relé específico (1 a 8) e o botão correto é o mesmo número.
 struct Target {
-  uint8_t module;
-  uint8_t relay;
-  uint8_t correctButton; // Botões 1-4 para módulo 1 e 5-8 para módulo 2 (offset de 4)
+  uint8_t relay;         // Relé alvo (1 a 8)
+  uint8_t correctButton; // Botão correto (1 a 8)
 };
 
 Target currentTarget;
 Target previousTarget;
 bool targetActive = false;
-
-void turnOnAllRelays() {
-  for (uint8_t mod = 1; mod <= NUM_MODULES; mod++) {
-    for (uint8_t r = 1; r <= RELAYS_PER_MODULE; r++) {
-      relays.SetRelay(r, SERIAL_RELAY_ON, mod);
-    }
-  }
-}
-
-void turnOffAllRelays() {
-  for (uint8_t mod = 1; mod <= NUM_MODULES; mod++) {
-    for (uint8_t r = 1; r <= RELAYS_PER_MODULE; r++) {
-      relays.SetRelay(r, SERIAL_RELAY_OFF, mod);
-    }
-  }
-}
 
 void triggerCountdown() {
   if (gameState == 0) {
@@ -84,22 +113,19 @@ void startGame() {
 void nextRound() {
   if (millis() - gameStartTime >= gameDuration) return;
   
-  uint8_t mod, relay, correctButton;
+  uint8_t relay;
   uint8_t attempts = 0;
-  // Garante que a nova rodada seja diferente da anterior (até 10 tentativas)
   do {
-    mod = random(1, NUM_MODULES + 1);
-    relay = random(1, RELAYS_PER_MODULE + 1);
-    correctButton = (mod == 1) ? relay : relay + 4;
+    relay = random(1, 9); // Relé de 1 a 8
     attempts++;
-  } while ((mod == previousTarget.module && relay == previousTarget.relay) && (attempts < 10));
+  } while (relay == previousTarget.relay && (attempts < 10));
   
-  previousTarget = { mod, relay, correctButton };
+  previousTarget = { relay, relay };
   currentTarget = previousTarget;
   targetActive = true;
   
-  Serial.printf("Nova rodada: Módulo %d, Relé %d, Botão correto: %d (tentativas: %d)\n", mod, relay, correctButton, attempts);
-  relays.SetRelay(relay, SERIAL_RELAY_ON, mod);
+  Serial.printf("Nova rodada: Relé %d, Botão correto: %d (tentativas: %d)\n", relay, relay, attempts);
+  setRelay(relay, true);
 }
 
 void endGame() {
@@ -112,28 +138,24 @@ void endGame() {
 }
 
 void updateGameState() {
-  // Desativa animação se o jogo não estiver idle
-  if(gameState > 1) animationStatus = false;
+  if (gameState > 1) animationStatus = false;
   
-  // Transição para fim do jogo: relés acesos por 3s
+  // Se o tempo do jogo acabou, liga todos os relés por 3s e muda o estado
   if (gameState == 1 && (millis() - gameStartTime >= gameDuration)) {
     turnOnAllRelays();
     gameState = 5;
     stateChangeTime = millis();
   }
-  // Desliga os relés após 3s no estado 5 e passa para pontuação final
   else if (gameState == 5 && (millis() - stateChangeTime >= 3000)) {
     turnOffAllRelays();
     Serial.printf("Fim do jogo! Pontuação final: %d\n", score);
     gameState = 2;
     stateChangeTime = millis();
   }
-  // Após 5s em pontuação final, vai para ranking
   else if (gameState == 2 && (millis() - stateChangeTime >= 5000)) {
     gameState = 3;
     stateChangeTime = millis();
   }
-  // Após 10s no ranking, volta para idle e reativa animação
   else if (gameState == 3 && (millis() - stateChangeTime >= 10000)) {
     gameState = 0;
     score = 0;
@@ -143,28 +165,24 @@ void updateGameState() {
 
 void handleCountdown() {
   unsigned long elapsed = millis() - countdownStartTime;
-  
   if (elapsed < 3000) {
-    // Verifica em qual fase do ciclo de 1000ms estamos (primeiros 500ms ou últimos 500ms)
-    unsigned long phase = (elapsed / 500) % 2; // 0 para ligar, 1 para desligar
-
-    // Somente altera o estado se ele for diferente do último estado registrado
-    static unsigned long lastPhase = 99; // Inicializa com um valor fora do esperado
+    // Liga e desliga todos os relés a cada 500ms durante a contagem regressiva
+    unsigned long phase = (elapsed / 500) % 2;
+    static unsigned long lastPhase = 99;
     if (phase != lastPhase) {
-      lastPhase = phase; // Atualiza o último estado
-
-      if (phase == 0) {
-        turnOnAllRelays();  // Liga os relés
-      } else {
-        turnOffAllRelays(); // Desliga os relés
-      }
+      lastPhase = phase;
+      if (phase == 0)
+        turnOnAllRelays();
+      else
+        turnOffAllRelays();
     }
   } else {
-    startGame(); // Após 3s, inicia o jogo
+    startGame();
   }
 }
 
 // ========================= Animações Idle =========================
+// Sequências de animação usando os relés (de 1 a 8)
 const uint8_t spiralSequence[] = { 1, 2, 8, 7, 3, 4, 6, 5 };
 const size_t spiralSequenceCount = sizeof(spiralSequence) / sizeof(spiralSequence[0]);
 const uint8_t snakeSequence[] = { 1, 2, 4, 8, 7, 5, 3, 1 };
@@ -182,12 +200,8 @@ bool snakeAnimRunning = false;
 unsigned long snakeAnimStart = 0;
 size_t snakeIndex = 0;
 
-void setLed(uint8_t led, byte state) {
-  if (led >= 1 && led <= 4) {
-    relays.SetRelay(led, state, 1);
-  } else if (led >= 5 && led <= 8) {
-    relays.SetRelay(led - 4, state, 2);
-  }
+void setLed(uint8_t led, bool state) {
+  setRelay(led, state);
 }
 
 void startSpiralAnimation() {
@@ -203,12 +217,12 @@ void updateSpiralAnimation() {
   unsigned long now = millis();
   if (now - spiralAnimStart >= spiralIndex * 300UL) {
     if (spiralIndex > 0)
-      setLed(spiralSequence[spiralIndex - 1], SERIAL_RELAY_OFF);
+      setLed(spiralSequence[spiralIndex - 1], false);
     if (spiralIndex < spiralSequenceCount) {
-      setLed(spiralSequence[spiralIndex], SERIAL_RELAY_ON);
+      setLed(spiralSequence[spiralIndex], true);
       spiralIndex++;
     } else if (now - spiralAnimStart >= spiralSequenceCount * 300UL + 500) {
-      setLed(spiralSequence[spiralSequenceCount - 1], SERIAL_RELAY_OFF);
+      setLed(spiralSequence[spiralSequenceCount - 1], false);
       spiralAnimRunning = false;
       Serial.println("Spiral animation finalizada");
     }
@@ -228,12 +242,12 @@ void updateSnakeAnimation() {
   unsigned long now = millis();
   if (now - snakeAnimStart >= snakeIndex * 300UL) {
     if (snakeIndex > 0)
-      setLed(snakeSequence[snakeIndex - 1], SERIAL_RELAY_OFF);
+      setLed(snakeSequence[snakeIndex - 1], false);
     if (snakeIndex < snakeSequenceCount) {
-      setLed(snakeSequence[snakeIndex], SERIAL_RELAY_ON);
+      setLed(snakeSequence[snakeIndex], true);
       snakeIndex++;
     } else if (now - snakeAnimStart >= snakeSequenceCount * 300UL + 500) {
-      setLed(snakeSequence[snakeSequenceCount - 1], SERIAL_RELAY_OFF);
+      setLed(snakeSequence[snakeSequenceCount - 1], false);
       snakeAnimRunning = false;
       Serial.println("Snake animation finalizada");
     }
@@ -262,6 +276,28 @@ void updateIdleAnimation() {
   }
 }
 
+// ========================= Leitura dos Botões =========================
+void readButtons() {
+  for (int i = 0; i < NUM_BUTTONS; i++) {
+    bool currentState = digitalRead(buttonPins[i]);
+    // Detecta transição de LOW para HIGH (botão pressionado)
+    if (lastButtonStates[i] == LOW && currentState == HIGH) {
+      delay(50);  // Debounce
+      if (digitalRead(buttonPins[i]) == HIGH) {
+        uint8_t buttonPressed = i + 1;
+        if (targetActive && buttonPressed == currentTarget.correctButton) {
+          score++;
+          setRelay(currentTarget.relay, false);
+          targetActive = false;
+          waitingNextRound = true;
+          nextRoundTime = millis() + 300;
+        }
+      }
+    }
+    lastButtonStates[i] = currentState;
+  }
+}
+
 // ========================= WebSocket =========================
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
                void *arg, uint8_t *data, size_t len) {
@@ -280,51 +316,21 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
   }
 }
 
-void taskWebSocket(void *pvParameters) {
-  while (true) {
-    if (millis() - lastWsUpdate >= 100) {
-      lastWsUpdate = millis();
-      DynamicJsonDocument doc(128);
-      doc["score"] = score;
-      doc["state"] = gameState;
-      doc["timer"] = (gameState == 1) ? (gameDuration - (millis() - gameStartTime)) / 1000
-                                      : (gameState == 4) ? (3000 - (millis() - countdownStartTime)) / 1000
-                                      : 0;
-      String data;
-      serializeJson(doc, data);
-      ws.textAll(data);
-    }
-    vTaskDelay(10 / portTICK_PERIOD_MS);
-  }
-}
-
-void taskIdleAnimation(void *pvParameters) {
-  while (true) {
-    if (gameState == 0 && animationStatus) updateIdleAnimation();
-    vTaskDelay(50 / portTICK_PERIOD_MS);
-  }
-}
-
-void taskButtonRead(void *pvParameters) {
-  while (true) {
-    for (int i = 0; i < NUM_BUTTONS; i++) {
-      bool currentState = digitalRead(buttonPins[i]);
-      if (lastButtonStates[i] == LOW && currentState == HIGH) {
-        vTaskDelay(50 / portTICK_PERIOD_MS);  // Debounce
-        if (digitalRead(buttonPins[i]) == HIGH) {
-          uint8_t buttonPressed = i + 1;
-          if (targetActive && buttonPressed == currentTarget.correctButton) {
-            score++;
-            relays.SetRelay(currentTarget.relay, SERIAL_RELAY_OFF, currentTarget.module);
-            targetActive = false;
-            waitingNextRound = true;
-            nextRoundTime = millis() + 300;
-          }
-        }
-      }
-      lastButtonStates[i] = currentState;
-    }
-    vTaskDelay(10 / portTICK_PERIOD_MS);
+void updateWebSocket() {
+  if (millis() - lastWsUpdate >= 100) {
+    lastWsUpdate = millis();
+    DynamicJsonDocument doc(128);
+    doc["score"] = score;
+    doc["state"] = gameState;
+    if (gameState == 1)
+      doc["timer"] = (gameDuration - (millis() - gameStartTime)) / 1000;
+    else if (gameState == 4)
+      doc["timer"] = (3000 - (millis() - countdownStartTime)) / 1000;
+    else
+      doc["timer"] = 0;
+    String data;
+    serializeJson(doc, data);
+    ws.textAll(data);
   }
 }
 
@@ -333,6 +339,10 @@ void setup() {
   Serial.begin(115200);
   delay(100);
   
+  // Inicializa o MCP23017
+  initMCP23017();
+  
+  // Conecta ao WiFi
   WiFi.begin(ssid, password);
   Serial.print("Conectando-se ao WiFi");
   while (WiFi.status() != WL_CONNECTED) {
@@ -343,37 +353,43 @@ void setup() {
   Serial.print("IP do ESP: ");
   Serial.println(WiFi.localIP().toString());
   
+  // Configura o WebSocket
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
   server.begin();
   Serial.println("Servidor web iniciado.");
   
+  // Configura os pinos dos botões
   for (int i = 0; i < NUM_BUTTONS; i++) {
     pinMode(buttonPins[i], INPUT_PULLUP);
     lastButtonStates[i] = digitalRead(buttonPins[i]);
   }
   
-  for (uint8_t i = 1; i <= NUM_MODULES; i++) {
-    relays.SetModule(0x00, i, false);
-  }
-  relays.Info(&Serial);
-  
+  // Estado inicial do jogo e dos relés
   gameState = 0;
   gameRunning = false;
   turnOffAllRelays();
   animationStatus = animationEnabled;
-
-  xTaskCreatePinnedToCore(taskWebSocket, "WebSocket", 4096, NULL, 1, NULL, 0);
-  xTaskCreatePinnedToCore(taskIdleAnimation, "IdleAnimation", 2048, NULL, 1, NULL, 0);
-  xTaskCreatePinnedToCore(taskButtonRead, "ButtonRead", 2048, NULL, 1, NULL, 1);
 }
 
 void loop() {
   updateGameState();
-  if (gameState == 4) handleCountdown();
+  
+  if (gameState == 4) {
+    handleCountdown();
+  }
+  
   if (waitingNextRound && millis() >= nextRoundTime) {
     waitingNextRound = false;
     nextRound();
   }
-  vTaskDelay(50 / portTICK_PERIOD_MS);
+  
+  if (gameState == 0 && animationStatus) {
+    updateIdleAnimation();
+  }
+  
+  readButtons();
+  updateWebSocket();
+  
+  delay(10);  // Pequeno delay para não sobrecarregar o loop
 }

@@ -5,8 +5,8 @@
       2 = Tela de pontuação final (score screen)
       3 = Tela de ranking (ranking screen)
     */
-// const ESP_URL = "192.168.0.117"; // Ajuste conforme necessário
-const ESP_URL = "localhost:3000"; // Ajuste conforme necessário
+const ESP_URL = "192.168.0.117"; // Ajuste conforme necessário
+// const ESP_URL = "localhost:3000"; // Ajuste conforme necessário
 let audioPlayed = false;
 let lastScore = null;
 const nomeInput = document.getElementById('nome');
@@ -160,9 +160,7 @@ startButton.addEventListener('click', () => {
     startButton.disabled = true;
     handleFormSubmit().then(() => {
         ws.send("start-game");
-        setTimeout(() => {
-            playAudio('countdown');
-        }, 10);
+        playAudio('countdown');
     });
 });
 
