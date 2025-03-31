@@ -21,19 +21,32 @@ class LeadsController {
 
         // Instancia o service e tenta salvar os dados
         $apiLeadsService = new ApiLeadsService();
-        $result = $apiLeadsService->saveData($data);
-        
-        if ($result) {
+        $getData = $apiLeadsService->getData($data);
+
+        if (!$getData && $data['nome'] && $data['telefone'] && $data['interesse']) {
+            $result = $apiLeadsService->saveData($data);
+            if ($result) {
+                echo json_encode([
+                    'status' => 'success',
+                    'message' => 'Dados salvos com sucesso!',
+                    'id' => $result['id'],
+                    'nome' => isset($result['nome']) ? $result['nome'] : null,
+                ]);
+            } else {
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Falha ao salvar os dados.'
+                ]);
+            }
+        } else if ($getData) {
             echo json_encode([
                 'status' => 'success',
                 'message' => 'Dados salvos com sucesso!',
-                'id' => $result
+                'id' => $getData['id'],
+                'nome' => $getData['nome'],
             ]);
         } else {
-            echo json_encode([
-                'status' => 'error',
-                'message' => 'Falha ao salvar os dados.'
-            ]);
+            echo json_encode(['no_data' => true]);
         }
     }
 }

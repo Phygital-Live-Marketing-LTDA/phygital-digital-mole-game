@@ -258,7 +258,7 @@
       
       <form id="registrationForm" class="space-y-8 mx-12">
         <!-- Campo Nome -->
-        <div class="input-container h-16 fade-in-delay-100">
+        <div id="nomeDiv" class="input-container h-16 fade-in-delay-100 hidden">
           <input type="text" id="nome" name="nome" placeholder="Nome"
             class="custom-input placeholder-black capitalize border border-black border-b-4 border-0">
           <p id="nomeError" class="text-red-500 text-xs mt-1 hidden">Nome deve ter pelo menos 3 caracteres.</p>
@@ -272,7 +272,7 @@
         </div>
         
         <!-- Checkbox de Interesse -->
-        <div class="input-container h-16 fade-in-delay-300">
+        <div id="interesseDiv" class="input-container h-16 fade-in-delay-300 hidden">
           <div class="flex items-center gap-2 px-2 h-full z-10 relative border border-black border-b-4 border-0">
             <label for="interesse" class="text-[2rem] text-black">Quero saber mais sobre a Phygital</label>
             <input id="interesse" name="interesse" type="checkbox"
@@ -283,6 +283,12 @@
       
       <div class="flex justify-center mt-8 fade-in-delay-400">
         <img src="/assets/images/botao-iniciar.png" id="startButton" class="w-[80vw] md:w-[80vw] lg:w-[70vw] object-contain cursor-pointer">
+      </div>
+    </div>
+
+    <div id="userDataConfirmation" class="hidden flex flex-col items-center justify-center h-screen">
+      <div class="fade-in">
+        <h2 id="userDataConfirmationText" class="text-3xl md:text-4xl font-bold text-center mb-6"></h2>
       </div>
     </div>
     

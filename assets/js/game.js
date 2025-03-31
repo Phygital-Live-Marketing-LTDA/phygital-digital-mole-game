@@ -1,3 +1,6 @@
+const queryString = window.location.search;
+const urlParams = new URLSearchParams(queryString);
+const registration = urlParams.get('registration');
 /* 
       Estados do jogo:
       0 = Idle (pré-jogo/formulário)
@@ -12,13 +15,17 @@ const ESP_URL = "192.168.0.111"; // Ajuste conforme necessário
 let audioPlayed = false;
 let lastScore = null;
 const nomeInput = document.getElementById('nome');
+const nomeDiv = document.getElementById('nomeDiv');
 const telefoneInput = document.getElementById('telefone');
 const interesseInput = document.getElementById('interesse');
+const interesseDiv = document.getElementById('interesseDiv');
 const nomeError = document.getElementById('nomeError');
 const telefoneError = document.getElementById('telefoneError');
 const startButton = document.getElementById('startButton');
 const startGameButton = document.getElementById('startGameButton');
 const preGameDiv = document.getElementById('preGame');
+const userDataConfirmation = document.getElementById('userDataConfirmation');
+const userDataConfirmationText = document.getElementById('userDataConfirmationText');
 const runningGameDiv = document.getElementById('runningGame');
 const countdownDiv = document.getElementById('countdown');
 const countdownTimerElem = document.getElementById('countdownTimer');
@@ -28,7 +35,7 @@ const scoreElem = document.getElementById('score');
 const timerElem = document.getElementById('timer');
 const finalScoreElem = document.getElementById('finalScore');
 const rankingListElem = document.getElementById('rankingList');
-let lastInsertId = null;
+let currentUser = {};
 let returnToRankingTimeout = null;
 
 // Variável para armazenar a conexão WebSocket
@@ -160,8 +167,10 @@ function connectWebSocket() {
     };
 }
 
-// Inicializa a conexão WebSocket
-connectWebSocket();
+if(!registration) {
+    // Inicializa a conexão WebSocket
+    connectWebSocket();
+}
 
 // Função para enviar mensagens com verificação de estado
 function sendMessage(message, queueIfFailed = true) {
@@ -245,7 +254,7 @@ function validateForm() {
     telefoneError.classList.toggle('hidden', telefoneValid || !telefoneInteracted);
 
     // O botão sempre é habilitado/desabilitado com base na validação
-    const formValid = nomeValid && telefoneValid;
+    const formValid = telefoneValid;
     startButton.disabled = !formValid;
     startButton.classList.toggle('opacity-50', !formValid);
     startButton.classList.toggle('cursor-not-allowed', !formValid);
@@ -280,7 +289,7 @@ const clearForm = () => {
     nomeInput.value = '';
     telefoneInput.value = '';
     interesseInput.checked = false;
-    lastInsertId = null;
+    currentUser = {};
     
     // Reinicia as flags de interação
     nomeInteracted = false;
@@ -313,8 +322,7 @@ const handleFormSubmit = async () => {
             }
         })
         .then(result => {
-            lastInsertId = result.id;
-            return true;
+            return result;
         })
         .catch(error => {
             alert('Erro ao salvar os dados.');
@@ -359,12 +367,32 @@ startGameButton.addEventListener('click', () => {
 // Botão "Iniciar" na tela de formulário
 startButton.addEventListener('click', () => {
     startButton.disabled = true;
-    handleFormSubmit().then(() => {
-        // Envia mensagem para iniciar o jogo
-        sendMessage("start-countdown");
-        setTimeout(() => {
-            playAudio('countdown');
-        }, 10);
+    handleFormSubmit().then((result) => {
+        if(result?.no_data == true) {
+            nomeDiv.classList.remove('hidden');
+            interesseDiv.classList.remove('hidden');
+            startButton.disabled = false;
+        } else {
+            currentUser = {
+                id: result.id,
+                nome: result.nome
+            };
+            if(!registration) {
+                // Envia mensagem para iniciar o jogo
+                sendMessage("start-countdown");
+                setTimeout(() => {
+                    playAudio('countdown');
+                }, 10);
+            } else {
+                preGameDiv.classList.add('hidden');
+                userDataConfirmation.classList.remove('hidden');
+                let tempName = currentUser.nome.split(' ');
+                userDataConfirmationText.textContent = "Seja bem vindo(a) " + tempName[0] + "!";
+                setTimeout(() => {
+                    location.reload(true);
+                }, 5000);
+            }
+        }
     });
 });
 
@@ -385,7 +413,7 @@ const handleRanking = (data) => {
         linha.style.setProperty('--ranking-index', index); // Adiciona índice para animação sequencial
         
         // Destacar a linha do usuário atual, se disponível
-        if (lastInsertId && item.leads_id === lastInsertId) {
+        if (currentUser.id && item.leads_id === currentUser.id) {
             linha.classList.add('current-user');
         }
         
@@ -437,7 +465,7 @@ const storeRanking = () => {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            leads_id: lastInsertId,
+            leads_id: currentUser.id,
             score: lastScore
         })
     })
@@ -611,23 +639,25 @@ function showRankingMessage(message) {
 
 // Ao carregar a página, verificar se o estado inicial é o ranking
 window.addEventListener('load', () => {
-    // Iniciar no estado de ranking (tela de descanso)
-    preGameDiv.classList.add('hidden');
-    runningGameDiv.classList.add('hidden');
-    scoreScreenDiv.classList.add('hidden');
-    rankingScreenDiv.classList.remove('hidden');
-    
-    // Buscar ranking inicial (apenas uma vez)
-    loadRanking(true);
-    
-    // Limpa qualquer intervalo antigo
-    if (rankingLoadInterval) {
-        clearInterval(rankingLoadInterval);
+    if(!registration) {
+        // Iniciar no estado de ranking (tela de descanso)
+        preGameDiv.classList.add('hidden');
+        runningGameDiv.classList.add('hidden');
+        scoreScreenDiv.classList.add('hidden');
+        rankingScreenDiv.classList.remove('hidden');
+        
+        // Buscar ranking inicial (apenas uma vez)
+        loadRanking(true);
+        
+        // Limpa qualquer intervalo antigo
+        if (rankingLoadInterval) {
+            clearInterval(rankingLoadInterval);
+        }
+        
+        // Definir um intervalo para recarregar o ranking periodicamente (a cada 5 minutos)
+        // apenas para manter os dados sincronizados com o servidor
+        rankingLoadInterval = setInterval(() => loadRanking(true), 5 * 60 * 1000);
     }
-    
-    // Definir um intervalo para recarregar o ranking periodicamente (a cada 5 minutos)
-    // apenas para manter os dados sincronizados com o servidor
-    rankingLoadInterval = setInterval(() => loadRanking(true), 5 * 60 * 1000);
 });
 
 // Função para resetar o estado do ranking

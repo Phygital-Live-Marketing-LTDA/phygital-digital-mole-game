@@ -1,9 +1,8 @@
 <?php
 // Verifica se o arquivo .env existe
-if (file_exists(__DIR__ . '/.env')) {
+if (file_exists('.env')) {
     // Lê o conteúdo do arquivo ignorando linhas vazias
-    $lines = file(__DIR__ . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-
+    $lines = file('.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
         // Ignora linhas que comecem com '#' (comentários)
         if (strpos(trim($line), '#') === 0) {

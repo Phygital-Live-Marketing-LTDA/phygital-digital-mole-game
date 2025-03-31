@@ -22,11 +22,6 @@ class ApiLeadsService {
             return ":{$col}";
         }, $columns);
 
-        $getData = $this->getData($data);
-        if ($getData) {
-            return $getData['id'];
-        }
-
         // Monta a query de INSERT
         $sql  = "INSERT INTO leads (" . implode(", ", $columns) . ") VALUES (" . implode(", ", $placeholders) . ")";
         $stmt = $this->db->prepare($sql);
@@ -38,7 +33,10 @@ class ApiLeadsService {
 
         // Executa e retorna o ID inserido ou false em caso de erro
         if ($stmt->execute()) {
-            return $this->db->lastInsertId();
+            return [
+                'id' => $this->db->lastInsertId(),
+                'nome' => $data['nome'],
+            ];
         }
         return false;
     }
@@ -51,13 +49,14 @@ class ApiLeadsService {
      */
     public function getData(array $data) {
         // Extrai as colunas e cria os placeholders para a query
+        $data         = array_filter($data);
         $columns      = array_keys($data);
         $placeholders = array_map(function($col) {
             return "{$col} = :{$col}";
         }, $columns);
 
         // Monta a query de SELECT
-        $sql  = "SELECT id, " . implode(", ", $columns) . " FROM leads WHERE " . implode(" AND ", $placeholders);
+        $sql  = "SELECT id, nome, telefone FROM leads WHERE " . implode(" AND ", $placeholders);
         $stmt = $this->db->prepare($sql);
 
         // Associa os valores aos respectivos placeholders
