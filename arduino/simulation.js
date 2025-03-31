@@ -48,15 +48,15 @@ const relays = new SimulatedRelay();
 
 // Definição dos estados do jogo
 const GameState = {
-    IDLE: 0,
-    COUNTDOWN: 4,
-    GAME_RUNNING: 1,
-    GAME_OVER: 5,
-    FINAL_SCORE: 2,
-    RANKING: 3
+    IDLE: 0,         // Formulário de leads
+    COUNTDOWN: 4,    // Contagem regressiva
+    GAME_RUNNING: 1, // Jogo em andamento
+    GAME_OVER: 5,    // Fim do jogo (relés acesos)
+    FINAL_SCORE: 2,  // Pontuação final
+    RANKING: 3       // Tela de ranking (tela de descanso)
 };
 
-let gameState = GameState.IDLE;
+let gameState = GameState.RANKING; // Começa no estado de ranking (tela de descanso)
 let targetActive = false;
 let currentTarget = null;
 let previousTarget = null;
@@ -136,13 +136,9 @@ function startGame() {
 function resetGame() {
     console.log("Exibindo pontuação final. Aguarde 5 segundos para transição para Ranking...");
     setTimeout(() => {
-        console.log("Transição para Ranking...");
+        console.log("Retornando para tela de ranking (tela de descanso)...");
         gameState = GameState.RANKING;
-        setTimeout(() => {
-            console.log("Transição para IDLE...");
-            gameState = GameState.IDLE;
-            // Aqui você pode reiniciar o jogo se desejar ou esperar um novo start
-        }, 10000); // Estado Ranking por 10 segundos
+        // Não faz transição para IDLE, fica no Ranking indefinidamente
     }, 5000); // Estado Final Score por 5 segundos
 }
 
@@ -154,7 +150,7 @@ function gameOver() {
         relays.turnOffAll();
         console.log(`Fim do jogo! Pontuação final: ${score}`);
         gameState = GameState.FINAL_SCORE;
-        resetGame(); // Chama a função que faz a transição para Ranking e depois para Idle
+        resetGame(); // Chama a função que faz a transição para Ranking
     }, 3000);
 }
 
@@ -185,12 +181,52 @@ setInterval(() => {
 
 // Tratamento das conexões WebSocket
 wss.on('connection', ws => {
+    // Ao conectar, envia o estado atual
+    ws.send(JSON.stringify({
+        score: score,
+        state: gameState,
+        timer: 0
+    }));
+    
     ws.on('message', message => {
         const msg = (typeof message === 'string') ? message : message.toString();
         console.log("Mensagem recebida:", msg);
-        if (msg === 'start-game' && gameState === GameState.IDLE) {
+        
+        if (msg === "show-form") {
+            // Quando o botão "Começar" é clicado na tela de ranking
+            if (gameState === GameState.RANKING) {
+                gameState = GameState.IDLE;
+                console.log("Mudando para formulário de leads (IDLE)");
+                broadcast({
+                    score: score,
+                    state: gameState,
+                    timer: 0
+                });
+            }
+        }
+        else if (msg === "start-countdown") {
+            // Quando o botão "Iniciar" é clicado no formulário
+            // Inicia a contagem regressiva independente do estado atual
+            console.log("Iniciando contagem regressiva diretamente");
             startCountdown();
         }
+        else if (msg === 'start-game') {
+            // Manter compatibilidade com código anterior
+            // A mensagem 'start-game' agora pode vir da tela de formulário (IDLE)
+            if (gameState === GameState.RANKING) {
+                // Se estiver no ranking, apenas muda para IDLE
+                gameState = GameState.IDLE;
+                broadcast({
+                    score: score,
+                    state: gameState,
+                    timer: 0
+                });
+            } else if (gameState === GameState.IDLE) {
+                // Se já está em IDLE, inicia o countdown
+                startCountdown();
+            }
+        }
+        
         if (msg.startsWith('button-')) {
             const button = parseInt(msg.split('-')[1]);
             if (targetActive && button === currentTarget.correctButton) {

@@ -9,104 +9,337 @@
 </head>
 
 <style>
+  .input-container {
+    position: relative;
+    margin-bottom: 20px;
+  }
+  
+  .custom-input {
+    width: 100%;
+    background: transparent;
+    padding: 12px 16px;
+    outline: none;
+    font-size: 4rem;
+    color: black;
+    position: relative;
+    z-index: 10;
+  }
+  
+  .input-bg {
+    background: url('/assets/images/input.png') no-repeat center;
+    background-size: 100% 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+  }
+  
   .divider td {
-    height: 4px;
-    padding: 0; /* remove padding para ajustar a altura */
+    height: 2rem;
+    padding: 0;
     background: url('/assets/images/input.png') no-repeat center;
     background-size: cover;
     border: none;
+  }
+  
+  /* Estilos para a tabela de ranking com o background input.png */
+  .ranking-row {
+    position: relative;
+    height: 100px;
+    margin-bottom: 8px;
+    border-spacing: 0;
+    border-collapse: separate;
+  }
+  
+  .ranking-cell {
+    position: relative;
+    z-index: 10;
+    background: transparent !important;
+    color: black;
+    font-weight: 400;
+    font-size: 2rem !important;
+    padding: 20px;
+    margin-bottom: 30px;
+    
+  }
+  
+  .ranking-row-bg {
+    background: url('/assets/images/input.png') no-repeat center bottom;
+    background-size: 100% 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+  }
+  
+  .ranking-table table {
+    background: transparent !important;
+    border-spacing: 0 8px;
+    border-collapse: separate;
+    width: 100%;
+  }
+  
+  .ranking-table thead th {
+    padding: 12px 16px;
+    font-weight: bold;
+    color: #333;
+    opacity: 0;
+    font-size: 1.2rem;
+    border-radius: 8px;
+    margin-bottom: 30px;
+  }
+  
+  .ranking-table tbody tr {
+    margin-bottom: 30px;
+  }
+  
+  .ranking-table tbody td:first-child {
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+  }
+  
+  .ranking-table tbody td:last-child {
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+  }
+  
+  @media (min-width: 768px) and (max-width: 1024px) {
+    .custom-input {
+      padding: 2px 10px;
+      font-size: 2rem;
+    }
+    
+    .ranking-table {
+      max-width: 90%;
+      margin: 0 auto;
+    }
+    
+
+  }
+  
+  .current-user .ranking-cell {
+    font-weight: bold;
+    color: #000000;
+  }
+  
+  .current-user .ranking-row-bg {
+    background: url('/assets/images/input.png') no-repeat center;
+    background-size: 100% 100%;
+  }
+  
+  /* Animações de Fade e Pop */
+  @keyframes fadeIn {
+    from { 
+      opacity: 0; 
+    }
+    to { 
+      opacity: 1; 
+    }
+  }
+  
+  @keyframes popIn {
+    0% {
+      transform: scale(0.6);
+      opacity: 0;
+    }
+    70% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  
+  /* Classes de animação de fade */
+  .fade-in {
+    animation: fadeIn 0.8s ease forwards;
+    opacity: 0;
+  }
+  
+  .fade-in-delay-100 {
+    animation: fadeIn 0.8s ease forwards;
+    animation-delay: 0.1s;
+    opacity: 0;
+  }
+  
+  .fade-in-delay-200 {
+    animation: fadeIn 0.8s ease forwards;
+    animation-delay: 0.2s;
+    opacity: 0;
+  }
+  
+  .fade-in-delay-300 {
+    animation: fadeIn 0.8s ease forwards;
+    animation-delay: 0.3s;
+    opacity: 0;
+  }
+  
+  .fade-in-delay-400 {
+    animation: fadeIn 0.8s ease forwards;
+    animation-delay: 0.4s;
+    opacity: 0;
+  }
+  
+  .fade-in-delay-500 {
+    animation: fadeIn 0.8s ease forwards;
+    animation-delay: 0.5s;
+    opacity: 0;
+  }
+  
+  /* Classes de animação de pop */
+  .pop-in {
+    animation: popIn 0.6s ease forwards;
+    opacity: 0;
+  }
+  
+  .pop-in-delay-100 {
+    animation: popIn 0.6s ease forwards;
+    animation-delay: 0.1s;
+    opacity: 0;
+  }
+  
+  .pop-in-delay-200 {
+    animation: popIn 0.6s ease forwards;
+    animation-delay: 0.2s;
+    opacity: 0;
+  }
+  
+  .pop-in-delay-300 {
+    animation: popIn 0.6s ease forwards;
+    animation-delay: 0.3s;
+    opacity: 0;
+  }
+  
+  .pop-in-delay-400 {
+    animation: popIn 0.6s ease forwards;
+    animation-delay: 0.4s;
+    opacity: 0;
+  }
+  
+  .pop-in-delay-500 {
+    animation: popIn 0.6s ease forwards;
+    animation-delay: 0.5s;
+    opacity: 0;
+  }
+  
+  /* Variações mais lentas */
+  .fade-in-slow {
+    animation: fadeIn 1.2s ease forwards;
+    opacity: 0;
+  }
+  
+  .pop-in-slow {
+    animation: popIn 1s ease forwards;
+    opacity: 0;
+  }
+  
+  /* Animação para itens de ranking com aparecimento sequencial */
+  .ranking-animate {
+    animation: fadeIn 0.5s ease forwards;
+    animation-delay: calc(0.1s * var(--ranking-index, 0));
+    opacity: 0;
   }
 </style>
 
 <body class="bg-[url('/assets/images/bg.png')] bg-cover bg-center bg-no-repeat flex items-center justify-center min-h-screen overflow-hidden">
     
     <!-- Tela pré-jogo (idle) -->
-    <div id="preGame" class="w-screen h-screen flex flex-col justify-center bg-[url('/assets/images/bg.png')] bg-cover bg-center bg-no-repeat ">
+    <div id="preGame" class="w-screen h-screen flex flex-col justify-center bg-[url('/assets/images/bg.png')] bg-cover bg-center bg-no-repeat">
       
-    <div class="fixed top-20 left-1/2 -translate-x-1/2 object-contain items-center mx-auto">
-      <img src="/assets/images/umalogo.png"  class="h-[5vh]">
-    </div>
-      <form id="registrationForm" class="space-y-4 mx-12">
+      <div class="fixed top-20 left-1/2 -translate-x-1/2 object-contain items-center mx-auto fade-in">
+        <img src="/assets/images/umalogo.png" class="h-[5vh] md:h-[8vh]">
+      </div>
+      
+      <form id="registrationForm" class="space-y-8 mx-12">
         <!-- Campo Nome -->
-        <div>
+        <div class="input-container h-16 fade-in-delay-100">
+          <div class="input-bg"></div>
           <input type="text" id="nome" name="nome" placeholder="Nome"
-            class="mt-1 bg-transparent w-full object-cover p-2 outline-none text-xl text-black placeholder-black">
-            <img src="/assets/images/input.png"  class="-mt-6 object-contain">
+            class="custom-input placeholder-black capitalize">
           <p id="nomeError" class="text-red-500 text-xs mt-1 hidden">Nome deve ter pelo menos 3 caracteres.</p>
         </div>
         
         <!-- Campo Telefone -->
-        <div>
-          <input type="number" id="telefone" name="telefone" placeholder="Telefone"
-          class="mt-1 bg-transparent w-full object-cover p-2 outline-none text-xl text-black placeholder-black">
-            <img src="/assets/images/input.png"  class="-mt-6 object-contain">
+        <div class="input-container h-16 fade-in-delay-200">
+          <div class="input-bg"></div>
+          <input type="text" id="telefone" name="telefone" placeholder="Telefone"
+            class="custom-input placeholder-black">
           <p id="telefoneError" class="text-red-500 text-xs mt-1 hidden">Telefone inválido.</p>
         </div>
         
-        <div>
-
-    
         <!-- Checkbox de Interesse -->
-        <div class="flex items-center">
-         
-          <label for="interesse" class="ml-2 mt-2 block text-sm text-gray-900 text-xl">
-            Quero saber mais sobre a Phygital
-          </label>
-
-          <input id="interesse" name="interesse" type="checkbox"
-            class="h-5 w-5 text-blue-600 border-black rounded mx-2 mt-2">
-        </div>
-        <img src="/assets/images/input.png"  class="-mt-3 object-contain">
-
+        <div class="input-container h-16 fade-in-delay-300">
+          <div class="input-bg"></div>
+          <div class="flex items-center gap-2 px-4 h-full z-10 relative">
+            <label for="interesse" class="text-[2rem] text-black">
+              Quero saber mais sobre a Phygital
+            </label>
+            <input id="interesse" name="interesse" type="checkbox"
+              class="h-8 w-8 text-blue-600 border-black rounded">
+          </div>
         </div>
       </form>
-      <img src="/assets/images/botao-iniciar.png" id="startButton" class="w-[90vw] object-contain -mt-4 mx-auto">
-     
+      
+      <div class="flex justify-center -mt-4 fade-in-delay-400">
+        <img src="/assets/images/botao-iniciar.png" id="startButton" class="w-[80vw] md:w-[80vw] lg:w-[70vw] object-contain cursor-pointer">
+      </div>
     </div>
     
     <!-- Tela do countdown -->
-    <div id="countdown" class="hidden flex flex-col items-center">
-      <p id="countdownTimer" class="text-3xl font-medium">3</p>
+    <div id="countdown" class="hidden flex flex-col items-center justify-center h-screen">
+      <p id="countdownTimer" class="text-5xl md:text-7xl font-medium pop-in">3</p>
     </div>
     
     <!-- Tela do jogo em andamento -->
-    <div id="runningGame" class="hidden flex flex-col items-center">
-      <p id="score" class="text-xl font-medium">Pontuação: 0</p>
-      <p id="timer" class="text-xl font-medium">Tempo restante: 20s</p>
+    <div id="runningGame" class="hidden flex flex-col items-center justify-center h-screen w-screen bg-[url('/assets/images/bg.png')] bg-cover bg-center bg-no-repeat">
+      <div class="fade-in">
+        <h2 class="text-3xl md:text-4xl font-bold text-center mb-6">Jogando...</h2>
+        <p id="score" class="text-2xl md:text-3xl font-medium mb-3 hidden fade-in-delay-100">Pontuação: 0</p>
+        <p id="timer" class="text-2xl md:text-3xl font-medium hidden fade-in-delay-200">Tempo restante: 20s</p>
+      </div>
     </div>
     
     <!-- Tela de pontuação final (exibida por 5 segundos) -->
-    <div id="scoreScreen" class="hidden flex flex-col items-center">
-      <h2 class="text-2xl font-bold mb-4">Fim do Jogo!</h2>
-      <p id="finalScore" class="text-xl">Pontuação final: 0</p>
+    <div id="scoreScreen" class="hidden flex flex-col items-center justify-center h-screen">
+      <div class="text-center">
+        <h2 class="text-3xl md:text-4xl font-bold mb-4 pop-in">Fim do Jogo!</h2>
+        <p id="finalScore" class="text-2xl md:text-3xl pop-in-delay-200">Pontuação final: 0</p>
+      </div>
     </div>
     
-    <!-- Tela de ranking (exibida por 10 segundos) -->
-
+    <!-- Tela de ranking (tela de descanso) -->
     <div id="rankingScreen" class="hidden bg-[url('/assets/images/bg.png')] bg-cover bg-center bg-no-repeat flex items-center justify-center h-screen w-screen overflow-hidden">
-<div class="fixed top-0">
-   <img src="/assets/images/ranking1.png" class="object-contain no-repeat" />
-</div>  
-<div class="fixed top-0 right-0">
-  <img src="/assets/images/ranking2.png" class="object-contain no-repeat h-[50vh]" />
-</div>
-<div class="container mx-auto p-4">
-    <div class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posição</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pontuação</th>
-          </tr>
-        </thead>
-        <tbody id="rankingList" class="bg-white divide-y divide-gray-200"></tbody>
-      </table>
+      <div class="fixed top-0 fade-in">
+        <img src="/assets/images/ranking1.png" class="object-contain no-repeat" />
+      </div>  
+      <div class="fixed top-0 right-0 fade-in-delay-200">
+        <img src="/assets/images/ranking2.png" class="object-contain no-repeat h-[20vh]" />
+      </div>
+      <div class="container mx-auto p-4 mt-12 fade-in-delay-300">
+        <div class="overflow-x-auto ranking-table ">
+          <table class=" ">
+            <thead>
+              <tr class="">
+                <th class="text-left px-6 py-3 text-sm md:text-base font-bold text-gray-100/10">Posição</th>
+                <th class="text-left px-6 py-3 text-sm md:text-base font-bold text-gray-800/10">Nome</th>
+                <th class="text-left px-6 py-3 text-sm md:text-base font-bold text-gray-800/10">Pontuação</th>
+              </tr>
+            </thead>
+            <tbody id="rankingList"></tbody>
+          </table>
+        </div>
+        <!-- Botão Começar na tela de ranking -->
+        <div class="flex justify-center mt-8 pop-in-delay-500">
+          <img src="/assets/images/botao-comecar.png" id="startGameButton" class="ranking-button w-[60vw] md:w-[40vw] lg:w-[30vw] object-contain cursor-pointer">
+        </div>
+      </div>
     </div>
-  </div>
-</div>
-
-
 
 </body>
 <script src="assets/js/game.js"></script>
