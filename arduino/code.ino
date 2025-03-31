@@ -59,7 +59,6 @@ void turnOffAllRelays() {
 
 // ========================= Configurações Gerais =========================
 unsigned long lastWsUpdate = 0;
-unsigned long lastWsUpdate = 0;
 const int NUM_BUTTONS = 8;
 int buttonPins[NUM_BUTTONS] = {14, 27, 26, 25, 33, 32, 35, 34};
 bool lastButtonStates[NUM_BUTTONS];
@@ -80,6 +79,7 @@ bool waitingNextRound = false;
 // ========================= Configurações de Rede =========================
 const char *ssid = "Phygital";
 const char *password = "Eventstag";
+IPAddress local_IP(192, 168, 0, 111);   // IP fixo que você deseja configurar
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -87,8 +87,6 @@ AsyncWebSocket ws("/ws");
 // ========================= Lógica do Jogo =========================
 // No novo fluxo usaremos 8 relés e botões correspondentes (1 a 8)
 struct Target {
-  uint8_t relay;         // Relé alvo (1 a 8)
-  uint8_t correctButton; // Botão correto (1 a 8)
   uint8_t relay;         // Relé alvo (1 a 8)
   uint8_t correctButton; // Botão correto (1 a 8)
 };
@@ -142,7 +140,7 @@ void endGame() {
 }
 
 void updateGameState() {
-  if (gameState > 1) animationStatus = false;
+  if (gameState != 3) animationStatus = false;
   
   // Se o tempo do jogo acabou, liga todos os relés por 3s e muda o estado
   if (gameState == 1 && (millis() - gameStartTime >= gameDuration)) {
@@ -202,8 +200,6 @@ bool snakeAnimRunning = false;
 unsigned long snakeAnimStart = 0;
 size_t snakeIndex = 0;
 
-void setLed(uint8_t led, bool state) {
-  setRelay(led, state);
 void setLed(uint8_t led, bool state) {
   setRelay(led, state);
 }
@@ -308,6 +304,15 @@ void readButtons() {
   }
 }
 
+void toggleRelaysTask(void * parameter) {
+  animationStatus = false;
+  turnOnAllRelays();
+  vTaskDelay(5000 / portTICK_PERIOD_MS);
+  turnOffAllRelays();
+  animationStatus = animationEnabled;
+  vTaskDelete(NULL); // Encerra a tarefa
+}
+
 // ========================= WebSocket =========================
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
                void *arg, uint8_t *data, size_t len) {
@@ -332,6 +337,17 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
         if (gameState == 3 || gameState == 0) {
           triggerCountdown();
         }
+      } else if (msg == "toggle-relays") {
+        // Cria a tarefa para alternar os relés sem bloquear o loop principal
+        xTaskCreatePinnedToCore(
+          toggleRelaysTask,   // Função da tarefa
+          "ToggleRelaysTask", // Nome da tarefa
+          2048,               // Tamanho da stack
+          NULL,               // Parâmetro (não utilizado)
+          1,                  // Prioridade
+          NULL,               // Handle da tarefa (não utilizado)
+          1                   // Núcleo onde a tarefa será executada
+        );
       }
     }
   }
@@ -361,8 +377,9 @@ void taskWebSocket(void *pvParameters) {
 
 void taskIdleAnimation(void *pvParameters) {
   for(;;) {
-    if ((gameState == 0 || gameState == 3) && animationStatus)
+    if (gameState == 3 && animationStatus) {
       updateIdleAnimation();
+    }
     vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
@@ -402,6 +419,10 @@ void setup() {
   // Inicializa o MCP23017
   initMCP23017();
   
+  if (!WiFi.config(local_IP)) {
+    Serial.println("Falha ao configurar IP estático");
+  }
+
   // Conecta ao WiFi
   WiFi.begin(ssid, password);
   Serial.print("Conectando-se ao WiFi");

@@ -60,12 +60,12 @@
     color: black;
     font-weight: 400;
     font-size: 2rem !important;
-    padding: 20px;
     margin-bottom: 30px;
     
   }
   
   .ranking-row-bg {
+    transform: rotate(2deg);
     background: url('/assets/images/input.png') no-repeat center bottom;
     background-size: 100% 100%;
     position: absolute;
@@ -259,34 +259,29 @@
       <form id="registrationForm" class="space-y-8 mx-12">
         <!-- Campo Nome -->
         <div class="input-container h-16 fade-in-delay-100">
-          <div class="input-bg"></div>
           <input type="text" id="nome" name="nome" placeholder="Nome"
-            class="custom-input placeholder-black capitalize">
+            class="custom-input placeholder-black capitalize border border-black border-b-4 border-0">
           <p id="nomeError" class="text-red-500 text-xs mt-1 hidden">Nome deve ter pelo menos 3 caracteres.</p>
         </div>
         
         <!-- Campo Telefone -->
         <div class="input-container h-16 fade-in-delay-200">
-          <div class="input-bg"></div>
           <input type="text" id="telefone" name="telefone" placeholder="Telefone"
-            class="custom-input placeholder-black">
+            class="custom-input placeholder-black border border-black border-b-4 border-0">
           <p id="telefoneError" class="text-red-500 text-xs mt-1 hidden">Telefone inválido.</p>
         </div>
         
         <!-- Checkbox de Interesse -->
         <div class="input-container h-16 fade-in-delay-300">
-          <div class="input-bg"></div>
-          <div class="flex items-center gap-2 px-4 h-full z-10 relative">
-            <label for="interesse" class="text-[2rem] text-black">
-              Quero saber mais sobre a Phygital
-            </label>
+          <div class="flex items-center gap-2 px-2 h-full z-10 relative border border-black border-b-4 border-0">
+            <label for="interesse" class="text-[2rem] text-black">Quero saber mais sobre a Phygital</label>
             <input id="interesse" name="interesse" type="checkbox"
               class="h-8 w-8 text-blue-600 border-black rounded">
           </div>
         </div>
       </form>
       
-      <div class="flex justify-center -mt-4 fade-in-delay-400">
+      <div class="flex justify-center mt-8 fade-in-delay-400">
         <img src="/assets/images/botao-iniciar.png" id="startButton" class="w-[80vw] md:w-[80vw] lg:w-[70vw] object-contain cursor-pointer">
       </div>
     </div>
@@ -323,7 +318,7 @@
       </div>
       <div class="container mx-auto p-4 mt-12 fade-in-delay-300">
         <div class="overflow-x-auto ranking-table ">
-          <table class=" ">
+          <table class="overflow-hidden">
             <thead>
               <tr class="">
                 <th class="text-left px-6 py-3 text-sm md:text-base font-bold text-gray-100/10">Posição</th>

@@ -7,7 +7,7 @@
       4 = Contagem regressiva
       5 = Fim (relés acesos)
     */
-const ESP_URL = "192.168.0.117"; // Ajuste conforme necessário
+const ESP_URL = "192.168.0.111"; // Ajuste conforme necessário
 // const ESP_URL = "localhost:3000"; // Ajuste conforme necessário
 let audioPlayed = false;
 let lastScore = null;
@@ -307,9 +307,10 @@ const handleFormSubmit = async () => {
         .then(response => {
             if (!response.ok) {
                 alert('Erro ao salvar os dados.');
-                return false;
+                throw new Error('Erro ao salvar os dados.');
+            } else {
+                return response.json();
             }
-            return response.json();
         })
         .then(result => {
             lastInsertId = result.id;
@@ -400,7 +401,7 @@ const handleRanking = (data) => {
         
         // Coluna de nome (com capitalização)
         const name = document.createElement('td');
-        name.className = 'ranking-cell';
+        name.className = 'ranking-cell px-4 pb-12';
         
         // Capitaliza o nome (primeira letra de cada palavra maiúscula)
         const nameParts = playerName.split(' ');
@@ -416,7 +417,7 @@ const handleRanking = (data) => {
         
         // Coluna de pontuação
         const score = document.createElement('td');
-        score.className = 'ranking-cell';
+        score.className = 'ranking-cell px-4 pb-16';
         score.textContent = playerScore;
         linha.appendChild(score);
         

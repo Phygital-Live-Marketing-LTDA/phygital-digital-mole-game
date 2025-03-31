@@ -5,3 +5,5 @@ php migrations/migrate.php
 npm install express
 npm install ws
 node arduino/simulation.js
+
+sendMessage('toggle-relays');
