@@ -415,10 +415,6 @@ void setup() {
   // Inicializa o MCP23017
   initMCP23017();
   
-  // Conecta ao WiFi
-  // Inicializa o MCP23017
-  initMCP23017();
-  
   if (!WiFi.config(local_IP)) {
     Serial.println("Falha ao configurar IP estático");
   }

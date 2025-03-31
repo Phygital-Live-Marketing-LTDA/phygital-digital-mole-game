@@ -1,5 +1,5 @@
 <?php
-require_once(__DIR__ . '/../config/database.php');
+require_once './config/Database.php';
 
 class HomeService {
     public function getData() {
