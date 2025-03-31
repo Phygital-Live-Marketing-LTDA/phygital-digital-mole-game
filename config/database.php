@@ -1,14 +1,17 @@
 <?php
+include './config/getEnv.php';
+
 class Database {
     private static $instance = null;
     private $connection;
 
     // O construtor é privado para evitar instanciar a classe diretamente
     private function __construct() {
-        $host = 'localhost';
-        $dbname = 'digital_mole_game';
-        $user = 'root';
-        $password = '';
+        $host = getenv('DB_HOST');
+        $user = getenv('DB_USER');
+        $password = getenv('DB_PASS');
+        $dbname = getenv('DB_NAME');
+
         $dsn = "mysql:host={$host};dbname={$dbname};charset=utf8";
         
         try {
