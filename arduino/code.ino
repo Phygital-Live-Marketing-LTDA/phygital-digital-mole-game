@@ -77,8 +77,8 @@ unsigned long nextRoundTime = 0;
 bool waitingNextRound = false;
 
 // ========================= Configurações de Rede =========================
-const char *ssid = "Phygital";
-const char *password = "Eventstag";
+const char *ssid = "Phygital Solutions";
+const char *password = "@Phygital27";
 IPAddress local_IP(192, 168, 0, 111);   // IP fixo que você deseja configurar
 
 AsyncWebServer server(80);
