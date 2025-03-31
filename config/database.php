@@ -7,10 +7,10 @@ class Database {
 
     // O construtor é privado para evitar instanciar a classe diretamente
     private function __construct() {
-        $host = getenv('DB_HOST');
-        $user = getenv('DB_USER');
-        $password = getenv('DB_PASS');
-        $dbname = getenv('DB_NAME');
+        $host = $_ENV['DB_HOST'];
+        $user = $_ENV['DB_USER'];
+        $password = $_ENV['DB_PASS'];
+        $dbname = $_ENV['DB_NAME'];
 
         $dsn = "mysql:host={$host};dbname={$dbname};charset=utf8";
         
