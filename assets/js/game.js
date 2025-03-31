@@ -7,8 +7,8 @@
       4 = Contagem regressiva
       5 = Fim (relés acesos)
     */
-// const ESP_URL = "192.168.0.117"; // Ajuste conforme necessário
-const ESP_URL = "localhost:3000"; // Ajuste conforme necessário
+const ESP_URL = "192.168.0.117"; // Ajuste conforme necessário
+// const ESP_URL = "localhost:3000"; // Ajuste conforme necessário
 let audioPlayed = false;
 let lastScore = null;
 const nomeInput = document.getElementById('nome');

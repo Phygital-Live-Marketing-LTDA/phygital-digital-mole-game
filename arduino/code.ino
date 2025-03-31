@@ -59,6 +59,7 @@ void turnOffAllRelays() {
 
 // ========================= Configurações Gerais =========================
 unsigned long lastWsUpdate = 0;
+unsigned long lastWsUpdate = 0;
 const int NUM_BUTTONS = 8;
 int buttonPins[NUM_BUTTONS] = {14, 27, 26, 25, 33, 32, 35, 34};
 bool lastButtonStates[NUM_BUTTONS];
@@ -70,7 +71,7 @@ int gameState = 3;  // 0: Idle (formulário), 1: Jogo, 2: Pontuação Final, 3: 
 bool gameRunning = false;
 unsigned long gameStartTime = 0;
 unsigned long stateChangeTime = 0;
-const unsigned long gameDuration = 21000; // Duração do jogo (21 segundos)
+const unsigned long gameDuration = 21000; // 21 segundos
 uint16_t score = 0;
 
 unsigned long nextRoundTime = 0;
@@ -86,6 +87,8 @@ AsyncWebSocket ws("/ws");
 // ========================= Lógica do Jogo =========================
 // No novo fluxo usaremos 8 relés e botões correspondentes (1 a 8)
 struct Target {
+  uint8_t relay;         // Relé alvo (1 a 8)
+  uint8_t correctButton; // Botão correto (1 a 8)
   uint8_t relay;         // Relé alvo (1 a 8)
   uint8_t correctButton; // Botão correto (1 a 8)
 };
@@ -114,9 +117,8 @@ void nextRound() {
   
   uint8_t relay;
   uint8_t attempts = 0;
-  // Garante que a nova rodada seja diferente da anterior (até 10 tentativas)
   do {
-    relay = random(1, 9); // Relé entre 1 e 8
+    relay = random(1, 9); // Relé de 1 a 8
     attempts++;
   } while (relay == previousTarget.relay && (attempts < 10));
   
@@ -124,6 +126,8 @@ void nextRound() {
   currentTarget = previousTarget;
   targetActive = true;
   
+  Serial.printf("Nova rodada: Relé %d, Botão correto: %d (tentativas: %d)\n", relay, relay, attempts);
+  setRelay(relay, true);
   Serial.printf("Nova rodada: Relé %d, Botão correto: %d (tentativas: %d)\n", relay, relay, attempts);
   setRelay(relay, true);
 }
@@ -138,10 +142,9 @@ void endGame() {
 }
 
 void updateGameState() {
-  // Desativa animação se o jogo não estiver idle
-  if(gameState > 1) animationStatus = false;
+  if (gameState > 1) animationStatus = false;
   
-  // Transição para fim do jogo: liga todos os relés por 3s
+  // Se o tempo do jogo acabou, liga todos os relés por 3s e muda o estado
   if (gameState == 1 && (millis() - gameStartTime >= gameDuration)) {
     turnOnAllRelays();
     gameState = 5;
@@ -164,9 +167,8 @@ void updateGameState() {
 
 void handleCountdown() {
   unsigned long elapsed = millis() - countdownStartTime;
-  
   if (elapsed < 3000) {
-    // Alterna ligar/desligar todos os relés a cada 500ms durante a contagem
+    // Liga e desliga todos os relés a cada 500ms durante a contagem regressiva
     unsigned long phase = (elapsed / 500) % 2;
     static unsigned long lastPhase = 99;
     if (phase != lastPhase) {
@@ -182,7 +184,7 @@ void handleCountdown() {
 }
 
 // ========================= Animações Idle =========================
-// Sequências de animação para os 8 relés
+// Sequências de animação usando os relés (de 1 a 8)
 const uint8_t spiralSequence[] = { 1, 2, 8, 7, 3, 4, 6, 5 };
 const size_t spiralSequenceCount = sizeof(spiralSequence) / sizeof(spiralSequence[0]);
 const uint8_t snakeSequence[] = { 1, 2, 4, 8, 7, 5, 3, 1 };
@@ -202,6 +204,8 @@ size_t snakeIndex = 0;
 
 void setLed(uint8_t led, bool state) {
   setRelay(led, state);
+void setLed(uint8_t led, bool state) {
+  setRelay(led, state);
 }
 
 void startSpiralAnimation() {
@@ -218,10 +222,13 @@ void updateSpiralAnimation() {
   if (now - spiralAnimStart >= spiralIndex * 300UL) {
     if (spiralIndex > 0)
       setLed(spiralSequence[spiralIndex - 1], false);
+      setLed(spiralSequence[spiralIndex - 1], false);
     if (spiralIndex < spiralSequenceCount) {
+      setLed(spiralSequence[spiralIndex], true);
       setLed(spiralSequence[spiralIndex], true);
       spiralIndex++;
     } else if (now - spiralAnimStart >= spiralSequenceCount * 300UL + 500) {
+      setLed(spiralSequence[spiralSequenceCount - 1], false);
       setLed(spiralSequence[spiralSequenceCount - 1], false);
       spiralAnimRunning = false;
       Serial.println("Spiral animation finalizada");
@@ -243,10 +250,13 @@ void updateSnakeAnimation() {
   if (now - snakeAnimStart >= snakeIndex * 300UL) {
     if (snakeIndex > 0)
       setLed(snakeSequence[snakeIndex - 1], false);
+      setLed(snakeSequence[snakeIndex - 1], false);
     if (snakeIndex < snakeSequenceCount) {
+      setLed(snakeSequence[snakeIndex], true);
       setLed(snakeSequence[snakeIndex], true);
       snakeIndex++;
     } else if (now - snakeAnimStart >= snakeSequenceCount * 300UL + 500) {
+      setLed(snakeSequence[snakeSequenceCount - 1], false);
       setLed(snakeSequence[snakeSequenceCount - 1], false);
       snakeAnimRunning = false;
       Serial.println("Snake animation finalizada");
@@ -273,6 +283,28 @@ void updateIdleAnimation() {
   } else {
     updateSnakeAnimation();
     if (!snakeAnimRunning) idleAnimActive = false;
+  }
+}
+
+// ========================= Leitura dos Botões =========================
+void readButtons() {
+  for (int i = 0; i < NUM_BUTTONS; i++) {
+    bool currentState = digitalRead(buttonPins[i]);
+    // Detecta transição de LOW para HIGH (botão pressionado)
+    if (lastButtonStates[i] == LOW && currentState == HIGH) {
+      delay(50);  // Debounce
+      if (digitalRead(buttonPins[i]) == HIGH) {
+        uint8_t buttonPressed = i + 1;
+        if (targetActive && buttonPressed == currentTarget.correctButton) {
+          score++;
+          setRelay(currentTarget.relay, false);
+          targetActive = false;
+          waitingNextRound = true;
+          nextRoundTime = millis() + 300;
+        }
+      }
+    }
+    lastButtonStates[i] = currentState;
   }
 }
 
@@ -367,6 +399,10 @@ void setup() {
   initMCP23017();
   
   // Conecta ao WiFi
+  // Inicializa o MCP23017
+  initMCP23017();
+  
+  // Conecta ao WiFi
   WiFi.begin(ssid, password);
   Serial.print("Conectando-se ao WiFi");
   while (WiFi.status() != WL_CONNECTED) {
@@ -378,11 +414,13 @@ void setup() {
   Serial.println(WiFi.localIP().toString());
   
   // Configura o WebSocket
+  // Configura o WebSocket
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
   server.begin();
   Serial.println("Servidor web iniciado.");
   
+  // Configura os pinos dos botões
   // Configura os pinos dos botões
   for (int i = 0; i < NUM_BUTTONS; i++) {
     pinMode(buttonPins[i], INPUT_PULLUP);
