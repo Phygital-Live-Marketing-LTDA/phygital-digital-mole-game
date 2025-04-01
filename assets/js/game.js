@@ -288,6 +288,9 @@ telefoneInput.addEventListener('blur', () => {
 });
 
 const clearForm = () => {
+    nomeDiv.classList.add('hidden');
+    interesseDiv.classList.add('hidden');
+    termosDiv.classList.add('hidden');
     nomeInput.value = '';
     telefoneInput.value = '';
     interesseInput.checked = false;
