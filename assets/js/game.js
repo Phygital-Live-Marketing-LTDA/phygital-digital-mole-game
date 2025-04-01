@@ -19,6 +19,8 @@ const nomeDiv = document.getElementById('nomeDiv');
 const telefoneInput = document.getElementById('telefone');
 const interesseInput = document.getElementById('interesse');
 const interesseDiv = document.getElementById('interesseDiv');
+const termosDiv = document.getElementById('termosDiv');
+const termosInput = document.getElementById('termos');
 const nomeError = document.getElementById('nomeError');
 const telefoneError = document.getElementById('telefoneError');
 const startButton = document.getElementById('startButton');
@@ -289,6 +291,7 @@ const clearForm = () => {
     nomeInput.value = '';
     telefoneInput.value = '';
     interesseInput.checked = false;
+    termosInput.checked = false;
     currentUser = {};
     
     // Reinicia as flags de interação
@@ -304,7 +307,8 @@ const handleFormSubmit = async () => {
     const data = JSON.stringify({
         nome: nomeInput.value.trim(),
         telefone: telefoneInput.value.trim(),
-        interesse: interesseInput.checked
+        interesse: interesseInput.checked,
+        termos: termosInput.checked
     });
     return fetch(API.leads, {
         method: 'POST',
