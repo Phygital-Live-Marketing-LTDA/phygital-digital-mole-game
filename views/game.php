@@ -115,7 +115,7 @@
     }
     
     .ranking-table {
-      max-width: 90%;
+      max-width: 70%;
       margin: 0 auto;
     }
     
@@ -303,6 +303,7 @@
         <h2 class="text-3xl md:text-4xl font-bold text-center mb-6">Jogando...</h2>
         <p id="score" class="text-2xl md:text-3xl font-medium mb-3 hidden fade-in-delay-100">Pontuação: 0</p>
         <p id="timer" class="text-2xl md:text-3xl font-medium hidden fade-in-delay-200">Tempo restante: 20s</p>
+      <img src="/assets/images/logo.png"  class="fixed bottom-20  -translate-x-1/2 left-1/2"/>
       </div>
     </div>
     
@@ -310,7 +311,9 @@
     <div id="scoreScreen" class="hidden flex flex-col items-center justify-center h-screen">
       <div class="text-center">
         <h2 class="text-3xl md:text-4xl font-bold mb-4 pop-in">Fim do Jogo!</h2>
-        <p id="finalScore" class="text-2xl md:text-3xl pop-in-delay-200">Pontuação final: 0</p>
+        <p id="finalScore" class="text-68xl md:text-7xl pop-in-delay-200">Pontuação final: 0</p>
+        <img src="/assets/images/logo.png"  class="fixed bottom-20  -translate-x-1/2 left-1/2 fade in"/>
+
       </div>
     </div>
     
@@ -322,7 +325,14 @@
       <div class="fixed top-0 right-0 fade-in-delay-200">
         <img src="/assets/images/ranking2.png" class="object-contain no-repeat h-[20vh]" />
       </div>
-      <div class="container mx-auto p-4 mt-12 fade-in-delay-300">
+      <div class="fade-in-delay-300">
+        <img src="/assets/images/titleranking.png" class="object-contain no-repeat h-[15vh] fixed top-20 right-0 fade-in-delay-200 -translate-x-1/2 left-1/2 " />
+        <img src="/assets/images/aviao.png" class="object-contain no-repeat h-[5vh] fixed top-[12rem] right-0 fade-in-delay-200 -translate-x-1/2 left-[48rem]"/>
+      </div>
+
+      <img src="/assets/images/wow.png" class="fixed h-20 top-[20rem] right-20 fade-in-delay-400"/>
+
+      <div class="container mx-auto p-4 mt-24 fade-in-delay-300">
         <div class="overflow-x-auto ranking-table ">
           <table class="overflow-hidden">
             <thead>
@@ -339,6 +349,19 @@
         <div class="flex justify-center mt-8 pop-in-delay-500">
           <img src="/assets/images/botao-comecar.png" id="startGameButton" class="ranking-button w-[60vw] md:w-[40vw] lg:w-[30vw] object-contain cursor-pointer">
         </div>
+
+        <div class="flex justify-center mt-1pop-in-delay-500 ml-24">
+        <img src="/assets/images/umalogo.png" class="h-12" />
+        </div>
+  
+           
+        <div>
+          <img src="/assets/images/logolateral.png" class="fixed  -translate-y-1/2 top-1/2 " />
+        </div>
+
+        <div class="fixed bottom-0 left-0 fade-in-delay-200">
+        <img src="/assets/images/tracado2.png" class="object-contain no-repeat h-[30vh]" />
+      </div>
       </div>
     </div>
 
