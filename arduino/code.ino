@@ -79,7 +79,6 @@ bool waitingNextRound = false;
 // ========================= Configurações de Rede =========================
 const char *ssid = "Phygital Solutions";
 const char *password = "@Phygital27";
-IPAddress local_IP(192, 168, 0, 111);   // IP fixo que você deseja configurar
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
@@ -414,10 +413,6 @@ void setup() {
   
   // Inicializa o MCP23017
   initMCP23017();
-  
-  if (!WiFi.config(local_IP)) {
-    Serial.println("Falha ao configurar IP estático");
-  }
 
   // Conecta ao WiFi
   WiFi.begin(ssid, password);
