@@ -371,6 +371,7 @@ startButton.addEventListener('click', () => {
         if(result?.no_data == true) {
             nomeDiv.classList.remove('hidden');
             interesseDiv.classList.remove('hidden');
+            termosDiv.classList.remove('hidden');
             startButton.disabled = false;
         } else {
             currentUser = {

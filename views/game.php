@@ -276,13 +276,30 @@
           <div class="flex items-center gap-2 px-2 h-full z-10 relative border border-black border-b-4 border-0">
             <label for="interesse" class="text-[2rem] text-black">Quero saber mais sobre a Phygital</label>
             <input id="interesse" name="interesse" type="checkbox"
-              class="h-8 w-8 text-blue-600 border-black rounded">
+            class="appearance-none h-8 w-8 border-2 border-gray-700 rounded checked:bg-[#FFD500] checked:border-[#FFD500] ">
           </div>
         </div>
+
+              <!-- Checkbox de termo -->
+              <div id="termosDiv" class="input-container h-16 fade-in-delay-400 hidden pt-24">
+          <div class="flex items-center gap-2 px-2 h-full z-10 relative pt-4">
+          <input id="termos" name="termos" type="checkbox"
+          class="appearance-none h-12 w-12 border-2 border-gray-700 rounded checked:bg-[#FFD500] checked:border-[#FFD500] "
+
+              >
+            <label for="termos" class="text-2xl text-black px-2 w-[80%]">Eu reconheço que a atividade envolve esforço físico, estando ciente dos riscos e benefícios inerentes à sua prática. Declaro que recebi todas as informações necessárias e que minha participação é totalmente voluntária. Ao assinar este termo, eximo os organizadores de qualquer responsabilidade por eventuais danos decorrentes da minha participação, assumindo integralmente os riscos envolvidos. </label>
+            
+          </div>
+        </div>
+
       </form>
       
-      <div class="flex justify-center mt-8 fade-in-delay-400">
+      <div class="flex justify-center mt-32 fade-in-delay-400">
         <img src="/assets/images/botao-iniciar.png" id="startButton" class="w-[80vw] md:w-[80vw] lg:w-[70vw] object-contain cursor-pointer">
+      </div>
+
+      <div>
+      <img src="/assets/images/logo.png"  class="fixed bottom-20  -translate-x-1/2 left-1/2"/>
       </div>
     </div>
 
