@@ -10,7 +10,7 @@ const registration = urlParams.get('registration');
       4 = Contagem regressiva
       5 = Fim (relés acesos)
     */
-const ESP_URL = "192.168.0.111"; // Ajuste conforme necessário
+const ESP_URL = "192.168.1.111"; // Ajuste conforme necessário
 // const ESP_URL = "localhost:3000"; // Ajuste conforme necessário
 let audioPlayed = false;
 let lastScore = null;
