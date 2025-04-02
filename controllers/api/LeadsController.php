@@ -7,7 +7,7 @@ class LeadsController {
         $data = json_decode($json, true);
 
         // Verifica se os dados foram recebidos corretamente
-        if (!$data || !isset($data['nome']) || !isset($data['telefone']) || !isset($data['interesse'])) {
+        if (!$data || !isset($data['nome']) || !isset($data['telefone']) || !isset($data['interesse']) || !isset($data['termos'])) {
             http_response_code(400);
             echo json_encode(['error' => 'Dados inválidos ou incompletos.']);
             exit;
@@ -18,12 +18,13 @@ class LeadsController {
         $data['telefone']  = filter_var($data['telefone'], FILTER_SANITIZE_STRING);
         // Converte o checkbox para 1 (true) ou 0 (false)
         $data['interesse'] = $data['interesse'] ? 1 : 0;
+        $data['termos']    = $data['termos'] ? 1 : 0;
 
         // Instancia o service e tenta salvar os dados
         $apiLeadsService = new ApiLeadsService();
         $getData = $apiLeadsService->getData($data);
 
-        if (!$getData && $data['nome'] && $data['telefone'] && $data['interesse']) {
+        if (!$getData && $data['nome'] && $data['telefone'] && $data['interesse'] && $data['termos']) {
             $result = $apiLeadsService->saveData($data);
             if ($result) {
                 echo json_encode([

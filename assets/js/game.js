@@ -10,7 +10,7 @@ const registration = urlParams.get('registration');
       4 = Contagem regressiva
       5 = Fim (relés acesos)
     */
-const ESP_URL = "192.168.0.111"; // Ajuste conforme necessário
+const ESP_URL = "192.168.1.111"; // Ajuste conforme necessário
 // const ESP_URL = "localhost:3000"; // Ajuste conforme necessário
 let audioPlayed = false;
 let lastScore = null;
@@ -19,6 +19,8 @@ const nomeDiv = document.getElementById('nomeDiv');
 const telefoneInput = document.getElementById('telefone');
 const interesseInput = document.getElementById('interesse');
 const interesseDiv = document.getElementById('interesseDiv');
+const termosDiv = document.getElementById('termosDiv');
+const termosInput = document.getElementById('termos');
 const nomeError = document.getElementById('nomeError');
 const telefoneError = document.getElementById('telefoneError');
 const startButton = document.getElementById('startButton');
@@ -286,9 +288,13 @@ telefoneInput.addEventListener('blur', () => {
 });
 
 const clearForm = () => {
+    nomeDiv.classList.add('hidden');
+    interesseDiv.classList.add('hidden');
+    termosDiv.classList.add('hidden');
     nomeInput.value = '';
     telefoneInput.value = '';
     interesseInput.checked = false;
+    termosInput.checked = false;
     currentUser = {};
     
     // Reinicia as flags de interação
@@ -304,7 +310,8 @@ const handleFormSubmit = async () => {
     const data = JSON.stringify({
         nome: nomeInput.value.trim(),
         telefone: telefoneInput.value.trim(),
-        interesse: interesseInput.checked
+        interesse: interesseInput.checked,
+        termos: termosInput.checked
     });
     return fetch(API.leads, {
         method: 'POST',

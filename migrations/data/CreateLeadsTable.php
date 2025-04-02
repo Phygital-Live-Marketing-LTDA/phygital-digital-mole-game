@@ -11,6 +11,7 @@ class CreateLeadsTable {
             nome VARCHAR(255) NOT NULL,
             telefone VARCHAR(50) NOT NULL,
             interesse TINYINT(1) NOT NULL,
+            termos TINYINT(1) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
         $db->exec($sql);
