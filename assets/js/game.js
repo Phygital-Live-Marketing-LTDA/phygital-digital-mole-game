@@ -11,7 +11,7 @@ const registration = urlParams.get('registration');
       5 = Fim (relés acesos)
     */
 const ESP_URL = "192.168.1.111"; // Ajuste conforme necessário
-// const ESP_URL = "localhost:3000"; // Ajuste conforme necessário
+//const ESP_URL = "localhost:3000"; // Ajuste conforme necessário
 let audioPlayed = false;
 let lastScore = null;
 const nomeInput = document.getElementById('nome');
@@ -323,6 +323,7 @@ const handleFormSubmit = async () => {
         .then(response => {
             if (!response.ok) {
                 alert('Erro ao salvar os dados.');
+                console.log('erro ao salvar os dados', error)
                 throw new Error('Erro ao salvar os dados.');
             } else {
                 return response.json();
@@ -333,6 +334,7 @@ const handleFormSubmit = async () => {
         })
         .catch(error => {
             alert('Erro ao salvar os dados.');
+            console.log('erro ao salvar os dados', error)
             return false;
         });
 };
