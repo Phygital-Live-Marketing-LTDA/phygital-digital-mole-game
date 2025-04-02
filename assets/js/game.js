@@ -399,61 +399,67 @@ startButton.addEventListener('click', () => {
 
 const handleRanking = (data) => {
     rankingListElem.innerHTML = ''; // Limpa o conteúdo anterior
-    
+
     if (!Array.isArray(data) || data.length === 0) {
-        showRankingMessage("Nenhum dado de ranking disponível");
+        showRankingMessage("Nenhum dado de ranking disponível"); // Usa a função adaptada
         return;
     }
     // -- Edição: Limita a lista aos 7 primeiros ---
-    const top7Data = data.slice(0,7);
+    const top7Data = data.slice(0, 7);
 
-    top7Data.forEach((item, index) => { // <-- alterado para iterar sobre o top7data
-        // Criar linha principal
-        const linha = document.createElement('tr');
-        linha.className = 'ranking-row ranking-animate';
-        linha.style.setProperty('--ranking-index', index); // Adiciona índice para animação sequencial
-        
+    top7Data.forEach((item, index) => { // <-- Iterar sobre o top7data
+        // Criar o div principal para o item do ranking
+        const rankingItem = document.createElement('div');
+        // Adiciona classes base e de animação
+        rankingItem.className = 'ranking-item relative h-[100px] mb-2 ranking-animate'; // Adicionado mb-2 para espaçamento e altura fixa
+        rankingItem.style.setProperty('--ranking-index', index); // Para animação sequencial
+
         // Destacar a linha do usuário atual, se disponível
         if (currentUser.id && item.leads_id === currentUser.id) {
-            linha.classList.add('current-user');
+            rankingItem.classList.add('current-user');
         }
-        
-        // Criar container para o background
-        const bgContainer = document.createElement('div');
-        bgContainer.className = 'ranking-row-bg';
-        linha.appendChild(bgContainer);
-        
+
+        // Criar container para o conteúdo (Nome e Pontuação) usando Flexbox
+        const contentContainer = document.createElement('div');
+        contentContainer.className = 'flex justify-between items-center h-full px-32 relative z-10'; // Usa flex, alinha itens, padding e z-index
+
         // Preparar os dados para exibição
-        const position = index + 1;
         const playerName = item.name || "Jogador Anônimo";
         const playerScore = item.score || 0;
-        
-        // Coluna de nome (com capitalização)
-        const name = document.createElement('td');
-        name.className = 'ranking-cell px-4 pb-12';
-        
-        // Capitaliza o nome (primeira letra de cada palavra maiúscula)
+
+        // Elemento para o nome (com capitalização)
+        const nameElement = document.createElement('span');
+        nameElement.className = 'ranking-name text-black font-normal text-3xl'; // Ajuste de classes
+        // Capitaliza o nome (lógica existente)
         const nameParts = playerName.split(' ');
-        const capitalizedName = nameParts.map(part => {
-            if (part.length > 0) {
-                return part[0].toUpperCase() + part.slice(1).toLowerCase();
-            }
-            return part;
-        }).join(' ');
-        
-        name.textContent = capitalizedName;
-        linha.appendChild(name);
-        
-        // Coluna de pontuação
-        const score = document.createElement('td');
-        score.className = 'ranking-cell px-4 pb-16';
-        score.textContent = playerScore;
-        linha.appendChild(score);
-        
-        rankingListElem.appendChild(linha);
+        const capitalizedName = nameParts.map(part => part.length > 0 ? part[0].toUpperCase() + part.slice(1).toLowerCase() : part).join(' ');
+        nameElement.textContent = capitalizedName;
+
+        // Elemento para a pontuação
+        const scoreElement = document.createElement('span');
+        scoreElement.className = 'ranking-score text-black font-normal text-3xl'; // Ajuste de classes
+        scoreElement.textContent = playerScore;
+
+        contentContainer.appendChild(nameElement);
+        contentContainer.appendChild(scoreElement);
+
+        // Adiciona o container de conteúdo ao item principal
+        rankingItem.appendChild(contentContainer);
+
+        // Adiciona o background (input.png) como um elemento div separado
+        const bgElement = document.createElement('div');
+        // Usa as classes existentes para o fundo, ajustadas para div
+        bgElement.className = 'ranking-item-bg absolute inset-0 z-0 pointer-events-none';
+        bgElement.style.background = "url('/assets/images/input.png') no-repeat center bottom"; // Aplica o background via style
+        bgElement.style.backgroundSize = '100% 100%'; // Garante que cubra o div
+        bgElement.style.transform = 'rotate(2deg)'; // Mantém a rotação se desejado
+
+        rankingItem.appendChild(bgElement); // Adiciona o background div
+
+        rankingListElem.appendChild(rankingItem); // Adiciona o item completo à lista
     });
-    
-    // Se não houver dados, mostra uma mensagem
+
+    // Se não houver dados, mostra uma mensagem (usando a função adaptada)
     if (rankingListElem.children.length === 0) {
         showRankingMessage("Nenhum dado de ranking disponível");
     }
@@ -626,16 +632,14 @@ function loadRanking(forceReload = false) {
         });
 }
 
-// Função auxiliar para exibir mensagens no ranking com o estilo correto
+// Função auxiliar para exibir mensagens no ranking com o estilo correto (adaptada para div)
 function showRankingMessage(message) {
-    const messageRow = `
-        <tr class="ranking-row fade-in">
-            <td colspan="3" class="relative h-20">
-                <div class="ranking-row-bg"></div>
-                <div class="ranking-cell text-center py-4 z-10 relative">${message}</div>
-            </td>
-        </tr>`;
-    rankingListElem.innerHTML = messageRow;
+    const messageDiv = `
+        <div class="ranking-item relative h-[100px] mb-2 fade-in flex items-center justify-center text-center">
+            <div class="ranking-item-bg absolute inset-0 z-0 pointer-events-none" style="background: url('/assets/images/input.png') no-repeat center bottom; background-size: 100% 100%; transform: rotate(2deg);"></div>
+            <span class="relative z-10 text-black font-normal text-2xl">${message}</span>
+        </div>`;
+    rankingListElem.innerHTML = messageDiv;
 }
 
 // Ao carregar a página, verificar se o estado inicial é o ranking

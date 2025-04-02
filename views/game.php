@@ -114,22 +114,13 @@
       font-size: 2rem;
     }
     
-    .ranking-table {
-      max-width: 70%;
-      margin: 0 auto;
+    /* Se precisar de ajustes específicos para .ranking-container em tablets, adicione aqui */
+    /* Exemplo:
+    .ranking-container {
+      width: 90%; 
     }
-    
+    */
 
-  }
-  
-  .current-user .ranking-cell {
-    font-weight: bold;
-    color: #000000;
-  }
-  
-  .current-user .ranking-row-bg {
-    background: url('/assets/images/input.png') no-repeat center;
-    background-size: 100% 100%;
   }
   
   /* Animações de Fade e Pop */
@@ -245,6 +236,15 @@
     animation-delay: calc(0.1s * var(--ranking-index, 0));
     opacity: 0;
   }
+
+  /* NOVOS ESTILOS PARA DIVs */
+
+  #rankingList {
+    /* Estilos para a lista em si, se necessário */
+  }
+
+ 
+
 </style>
 
 <body class="bg-[url('/assets/images/bg.png')] bg-cover bg-center bg-no-repeat flex items-center justify-center min-h-screen overflow-hidden">
@@ -266,7 +266,7 @@
         
         <!-- Campo Telefone -->
         <div class="input-container h-16 fade-in-delay-200">
-          <input type="text" id="telefone" name="telefone" placeholder="Telefone"
+          <input type="text" id="telefone" name="telefone" placeholder="Telefone" inputmode="numeric"
             class="custom-input placeholder-black border border-black border-b-4 border-0">
           <p id="telefoneError" class="text-red-500 text-xs mt-1 hidden">Telefone inválido.</p>
         </div>
@@ -330,7 +330,6 @@
         <h2 class="text-3xl md:text-4xl font-bold mb-4 pop-in">Fim do Jogo!</h2>
         <p id="finalScore" class="text-68xl md:text-7xl pop-in-delay-200">Pontuação final: 0</p>
         <img src="/assets/images/logo.png"  class="fixed bottom-20  -translate-x-1/2 left-1/2 fade in"/>
-
       </div>
     </div>
     
@@ -349,19 +348,11 @@
 
       <img src="/assets/images/wow.png" class="fixed h-20 top-[20rem] right-20 fade-in-delay-400"/>
 
-      <div class="container mx-auto p-4 mt-24 fade-in-delay-300">
-        <div class="overflow-x-auto ranking-table ">
-          <table class="overflow-hidden">
-            <thead>
-              <tr class="">
-                <th class="text-left px-6 py-3 text-sm md:text-base font-bold text-gray-100/10">Posição</th>
-                <th class="text-left px-6 py-3 text-sm md:text-base font-bold text-gray-800/10">Nome</th>
-                <th class="text-left px-6 py-3 text-sm md:text-base font-bold text-gray-800/10">Pontuação</th>
-              </tr>
-            </thead>
-            <tbody id="rankingList"></tbody>
-          </table>
+      <div class="w-4/5 mx-auto p-4 mt-24 fade-in-delay-300">
+        <div id="rankingList" class="space-y-2">
+            <!-- Itens do ranking (divs) serão inseridos aqui pelo JS -->
         </div>
+
         <!-- Botão Começar na tela de ranking -->
         <div class="flex justify-center mt-8 pop-in-delay-500">
           <img src="/assets/images/botao-comecar.png" id="startGameButton" class="ranking-button w-[60vw] md:w-[40vw] lg:w-[30vw] object-contain cursor-pointer">
@@ -373,7 +364,7 @@
   
            
         <div>
-          <img src="/assets/images/logolateral.png" class="fixed  -translate-y-1/2 top-1/2 " />
+          <img src="/assets/images/logolateral.png" class="fixed -translate-y-1/2 top-1/2  -ml-20 h-64" />
         </div>
 
         <div class="fixed bottom-0 left-0 fade-in-delay-200">
