@@ -159,9 +159,7 @@ function connectWebSocket() {
                 countdownDiv.classList.remove('hidden');
                 // Adiciona animação pop ao mostrar o número do contador
                 countdownTimerElem.textContent = `${parseInt(data.timer) + 1}`;
-                countdownTimerElem.classList.remove('pop-in');
                 void countdownTimerElem.offsetWidth; // Força recálculo para reiniciar a animação
-                countdownTimerElem.classList.add('pop-in');
             } else if (data.state === 5 && !audioPlayed) {
                 playAudio('end');
             }
@@ -349,15 +347,18 @@ function playAudio(type) {
     }
     if (audio) {
         // Reinicia o áudio para garantir que comece do início
+        audio.load();
         audio.currentTime = 0;
         audio.play()
-            .then(() => { audioPlayed = true; })
+            .then(() => {
+                audioPlayed = true;
+            })
             .catch(err => console.error("Erro ao tocar áudio:", err));
 
         // Quando o áudio terminar, reseta audioPlayed para false
-        audio.addEventListener("ended", () => {
+        audio.onended = () => {
             audioPlayed = false;
-        }, { once: true });
+        };
     }
     audioPlayed = true;
 }

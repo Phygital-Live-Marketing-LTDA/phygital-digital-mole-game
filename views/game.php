@@ -301,14 +301,14 @@
     </div>
 
     <div id="userDataConfirmation" class="hidden flex flex-col items-center justify-center h-screen">
-      <div class="fade-in">
+      <div class="">
         <h2 id="userDataConfirmationText" class="text-3xl md:text-4xl font-bold text-center mb-6"></h2>
       </div>
     </div>
     
     <!-- Tela do countdown -->
     <div id="countdown" class="hidden flex flex-col items-center justify-center h-screen">
-      <p id="countdownTimer" class="text-5xl md:text-7xl font-medium pop-in">3</p>
+      <p id="countdownTimer" class="text-5xl md:text-7xl font-medium">3</p>
     </div>
     
     <!-- Tela do jogo em andamento -->
@@ -371,5 +371,5 @@
     </div>
 
 </body>
-<script src="assets/js/game.js"></script>
+<script src="assets/js/game.js?<?= time() ?>"></script>
 </html>
