@@ -10,12 +10,13 @@
 
 uint8_t currentOutput;     // Estado atual dos 8 pinos da porta A
 
+// Escrita no MCP23017 usando escrita em bloco
 void writeBlockData(uint8_t reg, uint8_t data) {
   Wire.beginTransmission(MCP_ADDRESS);
   Wire.write(reg);
   Wire.write(data);
   Wire.endTransmission();
-  delay(10);
+  vTaskDelay(10 / portTICK_PERIOD_MS);
 }
 
 void initMCP23017() {
@@ -31,7 +32,7 @@ void initMCP23017() {
   writeBlockData(OLATA, currentOutput);
 }
 
-// Função para controlar um relé específico (mapeamento: relé 1 -> bit 7, relé 8 -> bit 0)
+// Função para controlar um relé específico (relé 1 -> bit 7, relé 8 -> bit 0)
 void setRelay(uint8_t relay, bool state) {
   if (relay < 1 || relay > 8) return;
   uint8_t mask = 1 << (8 - relay);
@@ -59,8 +60,9 @@ void turnOffAllRelays() {
 
 // ========================= Configurações Gerais =========================
 unsigned long lastWsUpdate = 0;
+unsigned long lastHeapCheck = 0;
 const int NUM_BUTTONS = 8;
-int buttonPins[NUM_BUTTONS] = {14, 27, 26, 25, 33, 32, 35, 34};
+const int buttonPins[NUM_BUTTONS] = {14, 27, 26, 25, 33, 32, 35, 34};
 bool lastButtonStates[NUM_BUTTONS];
 
 unsigned long countdownStartTime = 0;
@@ -84,7 +86,6 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 // ========================= Lógica do Jogo =========================
-// No novo fluxo usaremos 8 relés e botões correspondentes (1 a 8)
 struct Target {
   uint8_t relay;         // Relé alvo (1 a 8)
   uint8_t correctButton; // Botão correto (1 a 8)
@@ -106,6 +107,7 @@ void startGame() {
   gameRunning = true;
   gameStartTime = millis();
   // Inicia a primeira rodada
+  waitingNextRound = false;
   nextRound();
 }
 
@@ -115,7 +117,7 @@ void nextRound() {
   uint8_t relay;
   uint8_t attempts = 0;
   do {
-    relay = random(1, 9); // Relé de 1 a 8
+    relay = random(1, 9); // Escolhe relé de 1 a 8
     attempts++;
   } while (relay == previousTarget.relay && (attempts < 10));
   
@@ -123,8 +125,6 @@ void nextRound() {
   currentTarget = previousTarget;
   targetActive = true;
   
-  Serial.printf("Nova rodada: Relé %d, Botão correto: %d (tentativas: %d)\n", relay, relay, attempts);
-  setRelay(relay, true);
   Serial.printf("Nova rodada: Relé %d, Botão correto: %d (tentativas: %d)\n", relay, relay, attempts);
   setRelay(relay, true);
 }
@@ -208,7 +208,6 @@ void startSpiralAnimation() {
   spiralAnimStart = millis();
   spiralIndex = 0;
   turnOffAllRelays();
-  Serial.println("Spiral animation iniciada");
 }
 
 void updateSpiralAnimation() {
@@ -217,16 +216,12 @@ void updateSpiralAnimation() {
   if (now - spiralAnimStart >= spiralIndex * 300UL) {
     if (spiralIndex > 0)
       setLed(spiralSequence[spiralIndex - 1], false);
-      setLed(spiralSequence[spiralIndex - 1], false);
     if (spiralIndex < spiralSequenceCount) {
-      setLed(spiralSequence[spiralIndex], true);
       setLed(spiralSequence[spiralIndex], true);
       spiralIndex++;
     } else if (now - spiralAnimStart >= spiralSequenceCount * 300UL + 500) {
       setLed(spiralSequence[spiralSequenceCount - 1], false);
-      setLed(spiralSequence[spiralSequenceCount - 1], false);
       spiralAnimRunning = false;
-      Serial.println("Spiral animation finalizada");
     }
   }
 }
@@ -236,7 +231,6 @@ void startSnakeAnimation() {
   snakeAnimStart = millis();
   snakeIndex = 0;
   turnOffAllRelays();
-  Serial.println("Snake animation iniciada");
 }
 
 void updateSnakeAnimation() {
@@ -245,16 +239,12 @@ void updateSnakeAnimation() {
   if (now - snakeAnimStart >= snakeIndex * 300UL) {
     if (snakeIndex > 0)
       setLed(snakeSequence[snakeIndex - 1], false);
-      setLed(snakeSequence[snakeIndex - 1], false);
     if (snakeIndex < snakeSequenceCount) {
-      setLed(snakeSequence[snakeIndex], true);
       setLed(snakeSequence[snakeIndex], true);
       snakeIndex++;
     } else if (now - snakeAnimStart >= snakeSequenceCount * 300UL + 500) {
       setLed(snakeSequence[snakeSequenceCount - 1], false);
-      setLed(snakeSequence[snakeSequenceCount - 1], false);
       snakeAnimRunning = false;
-      Serial.println("Snake animation finalizada");
     }
   }
 }
@@ -282,111 +272,12 @@ void updateIdleAnimation() {
 }
 
 // ========================= Leitura dos Botões =========================
-void readButtons() {
-  for (int i = 0; i < NUM_BUTTONS; i++) {
-    bool currentState = digitalRead(buttonPins[i]);
-    // Detecta transição de LOW para HIGH (botão pressionado)
-    if (lastButtonStates[i] == LOW && currentState == HIGH) {
-      delay(50);  // Debounce
-      if (digitalRead(buttonPins[i]) == HIGH) {
-        uint8_t buttonPressed = i + 1;
-        if (targetActive && buttonPressed == currentTarget.correctButton) {
-          score++;
-          setRelay(currentTarget.relay, false);
-          targetActive = false;
-          waitingNextRound = true;
-          nextRoundTime = millis() + 300;
-        }
-      }
-    }
-    lastButtonStates[i] = currentState;
-  }
-}
-
-void toggleRelaysTask(void * parameter) {
-  animationStatus = false;
-  turnOnAllRelays();
-  vTaskDelay(5000 / portTICK_PERIOD_MS);
-  turnOffAllRelays();
-  animationStatus = animationEnabled;
-  vTaskDelete(NULL); // Encerra a tarefa
-}
-
-// ========================= WebSocket =========================
-void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
-               void *arg, uint8_t *data, size_t len) {
-  if (type == WS_EVT_DATA) {
-    AwsFrameInfo * info = (AwsFrameInfo*)arg;
-    if(info->final && info->index == 0 && info->len == len) {
-      String msg = "";
-      for (size_t i = 0; i < len; i++) {
-        msg += (char)data[i];
-      }
-      Serial.print("Mensagem recebida: ");
-      Serial.println(msg);
-      
-      if (msg == "show-form") {
-        if (gameState == 3) { // Ranking
-          gameState = 0; // Volta para o estado Idle (formulário)
-          Serial.println("Mudando para formulário de leads (IDLE)");
-        }
-      }
-      else if (msg == "start-countdown" || msg == "start-game") {
-        // Se estiver no Ranking ou Idle, inicia a contagem regressiva
-        if (gameState == 3 || gameState == 0) {
-          triggerCountdown();
-        }
-      } else if (msg == "toggle-relays") {
-        // Cria a tarefa para alternar os relés sem bloquear o loop principal
-        xTaskCreatePinnedToCore(
-          toggleRelaysTask,   // Função da tarefa
-          "ToggleRelaysTask", // Nome da tarefa
-          2048,               // Tamanho da stack
-          NULL,               // Parâmetro (não utilizado)
-          1,                  // Prioridade
-          NULL,               // Handle da tarefa (não utilizado)
-          1                   // Núcleo onde a tarefa será executada
-        );
-      }
-    }
-  }
-}
-
-void taskWebSocket(void *pvParameters) {
-  for(;;) {
-    if (millis() - lastWsUpdate >= 100) {
-      lastWsUpdate = millis();
-      DynamicJsonDocument doc(128);
-      doc["score"] = score;
-      doc["state"] = gameState;
-      if (gameState == 1)
-        doc["timer"] = (gameDuration - (millis() - gameStartTime)) / 1000;
-      else if (gameState == 4)
-        doc["timer"] = (3000 - (millis() - countdownStartTime)) / 1000;
-      else
-        doc["timer"] = 0;
-      
-      String data;
-      serializeJson(doc, data);
-      ws.textAll(data);
-    }
-    vTaskDelay(10 / portTICK_PERIOD_MS);
-  }
-}
-
-void taskIdleAnimation(void *pvParameters) {
-  for(;;) {
-    if (gameState == 3 && animationStatus) {
-      updateIdleAnimation();
-    }
-    vTaskDelay(50 / portTICK_PERIOD_MS);
-  }
-}
-
+// Apenas a tarefa taskButtonRead realizará a leitura dos botões, evitando duplicação.
 void taskButtonRead(void *pvParameters) {
-  for(;;) {
+  for (;;) {
     for (int i = 0; i < NUM_BUTTONS; i++) {
       bool currentState = digitalRead(buttonPins[i]);
+      // Detecta transição de LOW para HIGH (botão pressionado)
       if (lastButtonStates[i] == LOW && currentState == HIGH) {
         vTaskDelay(50 / portTICK_PERIOD_MS);  // Debounce
         if (digitalRead(buttonPins[i]) == HIGH) {
@@ -406,6 +297,103 @@ void taskButtonRead(void *pvParameters) {
   }
 }
 
+// Tarefa para alternar os relés sem bloquear o loop principal
+void toggleRelaysTask(void * parameter) {
+  animationStatus = false;
+  turnOnAllRelays();
+  vTaskDelay(5000 / portTICK_PERIOD_MS);
+  turnOffAllRelays();
+  animationStatus = animationEnabled;
+  vTaskDelete(NULL); // Encerra a tarefa
+}
+
+// ========================= WebSocket =========================
+void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
+               void *arg, uint8_t *data, size_t len) {
+  if (type == WS_EVT_DATA) {
+    AwsFrameInfo * info = (AwsFrameInfo*)arg;
+    if(info->final && info->index == 0 && info->len == len) {
+      // Utilizando buffer fixo para evitar alocações dinâmicas desnecessárias
+      char msgBuffer[64] = {0};
+      size_t copyLen = (len < sizeof(msgBuffer) - 1 ? len : sizeof(msgBuffer) - 1);
+      memcpy(msgBuffer, data, copyLen);
+      msgBuffer[copyLen] = '\0';
+      Serial.print("Mensagem recebida: ");
+      Serial.println(msgBuffer);
+      
+      if (strcmp(msgBuffer, "show-form") == 0) {
+        if (gameState == 3) { // Ranking
+          gameState = 0; // Volta para o estado Idle (formulário)
+          Serial.println("Mudando para formulário de leads (IDLE)");
+        }
+      }
+      else if (strcmp(msgBuffer, "start-countdown") == 0 || strcmp(msgBuffer, "start-game") == 0) {
+        // Se estiver no Ranking ou Idle, inicia a contagem regressiva
+        if (gameState == 3 || gameState == 0) {
+          triggerCountdown();
+        }
+      } else if (strcmp(msgBuffer, "toggle-relays") == 0) {
+        // Cria a tarefa para alternar os relés sem bloquear o loop principal
+        xTaskCreatePinnedToCore(
+          toggleRelaysTask,   // Função da tarefa
+          "ToggleRelaysTask", // Nome da tarefa
+          2048,               // Tamanho da stack
+          NULL,               // Parâmetro (não utilizado)
+          1,                  // Prioridade
+          NULL,               // Handle da tarefa (não utilizado)
+          1                   // Núcleo onde a tarefa será executada
+        );
+      }
+    }
+  }
+}
+
+void taskWebSocket(void *pvParameters) {
+  for (;;) {
+    if (millis() - lastWsUpdate >= 100) {
+      lastWsUpdate = millis();
+      // Criação de JSON com alocação estática
+      StaticJsonDocument<128> doc;
+      doc["score"] = score;
+      doc["state"] = gameState;
+      if (gameState == 1)
+        doc["timer"] = (gameDuration - (millis() - gameStartTime)) / 1000;
+      else if (gameState == 4)
+        doc["timer"] = (3000 - (millis() - countdownStartTime)) / 1000;
+      else
+        doc["timer"] = 0;
+      
+      char jsonBuffer[128];
+      size_t jsonSize = serializeJson(doc, jsonBuffer, sizeof(jsonBuffer));
+      if (jsonSize > 0) {
+        ws.textAll(jsonBuffer);
+      }
+    }
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+  }
+}
+
+void taskIdleAnimation(void *pvParameters) {
+  for (;;) {
+    if (gameState == 3 && animationStatus) {
+      updateIdleAnimation();
+    }
+    vTaskDelay(50 / portTICK_PERIOD_MS);
+  }
+}
+
+// ========================= Monitoramento de Heap =========================
+// Imprime o valor de memória livre a cada 60 segundos
+void taskHeapMonitor(void *pvParameters) {
+  for (;;) {
+    if (millis() - lastHeapCheck >= 60000) {
+      lastHeapCheck = millis();
+      Serial.printf("Heap livre: %d bytes\n", ESP.getFreeHeap());
+    }
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+}
+
 // ========================= Setup e Loop =========================
 void setup() {
   Serial.begin(115200);
@@ -418,7 +406,7 @@ void setup() {
   WiFi.begin(ssid, password);
   Serial.print("Conectando-se ao WiFi");
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
     Serial.print(".");
   }
   Serial.println("\nWiFi conectado!");
@@ -426,13 +414,11 @@ void setup() {
   Serial.println(WiFi.localIP().toString());
   
   // Configura o WebSocket
-  // Configura o WebSocket
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
   server.begin();
   Serial.println("Servidor web iniciado.");
   
-  // Configura os pinos dos botões
   // Configura os pinos dos botões
   for (int i = 0; i < NUM_BUTTONS; i++) {
     pinMode(buttonPins[i], INPUT_PULLUP);
@@ -445,10 +431,11 @@ void setup() {
   turnOffAllRelays();
   animationStatus = animationEnabled;
   
-  // Cria tarefas para WebSocket, animação Idle e leitura de botões
+  // Cria as tarefas
   xTaskCreatePinnedToCore(taskWebSocket, "WebSocket", 4096, NULL, 1, NULL, 0);
-  xTaskCreatePinnedToCore(taskIdleAnimation, "IdleAnimation", 2048, NULL, 1, NULL, 0);
+  xTaskCreatePinnedToCore(taskIdleAnimation, "IdleAnimation", 2048, NULL, 1, NULL, 1);
   xTaskCreatePinnedToCore(taskButtonRead, "ButtonRead", 2048, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(taskHeapMonitor, "HeapMonitor", 2048, NULL, 1, NULL, 0);
 }
 
 void loop() {
@@ -462,5 +449,6 @@ void loop() {
     nextRound();
   }
   
+  // Pequeno delay no loop principal para ceder tempo de CPU
   vTaskDelay(50 / portTICK_PERIOD_MS);
 }
