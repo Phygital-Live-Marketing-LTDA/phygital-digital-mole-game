@@ -308,15 +308,15 @@
     
     <!-- Tela do countdown -->
     <div id="countdown" class="hidden flex flex-col items-center justify-center h-screen">
-      <p id="countdownTimer" class="text-5xl md:text-7xl font-medium">3</p>
+      <p class="text-5xl md:text-7xl font-medium">Contagem Regressiva</p>
     </div>
     
     <!-- Tela do jogo em andamento -->
     <div id="runningGame" class="hidden flex flex-col items-center justify-center h-screen w-screen bg-[url('/assets/images/bg.png')] bg-cover bg-center bg-no-repeat">
       <div class="fade-in">
         <h2 class="text-3xl md:text-4xl font-bold text-center mb-6">Jogando...</h2>
-        <p id="score" class="text-2xl md:text-3xl font-medium mb-3 hidden fade-in-delay-100">Pontuação: 0</p>
-        <p id="timer" class="text-2xl md:text-3xl font-medium hidden fade-in-delay-200">Tempo restante: 20s</p>
+        <p id="score" class="text-2xl md:text-3xl font-medium mb-3 fade-in-delay-100">Pontuação: 0</p>
+        <p id="timer" class="text-2xl md:text-3xl font-medium fade-in-delay-200">Tempo restante: 20s</p>
       <img src="/assets/images/logo.png"  class="fixed bottom-20  -translate-x-1/2 left-1/2"/>
       </div>
     </div>

@@ -30,7 +30,6 @@ const userDataConfirmation = document.getElementById('userDataConfirmation');
 const userDataConfirmationText = document.getElementById('userDataConfirmationText');
 const runningGameDiv = document.getElementById('runningGame');
 const countdownDiv = document.getElementById('countdown');
-const countdownTimerElem = document.getElementById('countdownTimer');
 const scoreScreenDiv = document.getElementById('scoreScreen');
 const rankingScreenDiv = document.getElementById('rankingScreen');
 const scoreElem = document.getElementById('score');
@@ -157,11 +156,6 @@ function connectWebSocket() {
             } else if (data.state === 4) {
                 preGameDiv.classList.add('hidden');
                 countdownDiv.classList.remove('hidden');
-                // Adiciona animação pop ao mostrar o número do contador
-                countdownTimerElem.textContent = `${parseInt(data.timer) + 1}`;
-                void countdownTimerElem.offsetWidth; // Força recálculo para reiniciar a animação
-            } else if (data.state === 5 && !audioPlayed) {
-                playAudio('end');
             }
         }
     };
@@ -342,8 +336,6 @@ function playAudio(type) {
     let audio;
     if (type === "countdown") {
         audio = countdownAudio;
-    } else if (type === "end") {
-        audio = endAudio;
     }
     if (audio) {
         // Reinicia o áudio para garantir que comece do início
