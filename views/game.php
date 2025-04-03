@@ -315,8 +315,8 @@
     <div id="runningGame" class="hidden flex flex-col items-center justify-center h-screen w-screen bg-[url('/assets/images/bg.png')] bg-cover bg-center bg-no-repeat">
       <div class="fade-in">
         <h2 class="text-3xl md:text-4xl font-bold text-center mb-6">Jogando...</h2>
-        <p id="score" class="text-2xl md:text-3xl font-medium mb-3 fade-in-delay-100">Pontuação: 0</p>
-        <p id="timer" class="text-2xl md:text-3xl font-medium fade-in-delay-200">Tempo restante: 20s</p>
+        <h2 id="score" class="text-2xl md:text-3xl font-medium text-center mb-3 fade-in-delay-100">Pontuação: 0</h2>
+        <h2 id="timer" class="text-2xl md:text-3xl font-medium text-center fade-in-delay-200">Tempo restante: 20s</h2>
       <img src="/assets/images/logo.png"  class="fixed bottom-20  -translate-x-1/2 left-1/2"/>
       </div>
     </div>

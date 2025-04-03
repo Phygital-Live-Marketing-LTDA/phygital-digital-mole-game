@@ -109,21 +109,18 @@ void startGame() {
 }
 
 void nextRound() {
-  if (targetActive || millis() - gameStartTime >= gameDuration) return;
-
+  if (millis() - gameStartTime >= gameDuration) return;
   uint8_t relay;
   uint8_t attempts = 0;
   do {
     relay = random(1, 8); // Relé de 1 a 8
     attempts++;
-  } while (relay == previousTarget.relay && attempts < 10);
-
+  } while (relay == previousTarget.relay && (attempts < 10));
   previousTarget = { relay, relay };
   currentTarget = previousTarget;
   targetActive = true;
   Serial.printf("Nova rodada: Relé %d, Botão correto: %d (tentativas: %d)\n", relay, relay, attempts);
-
-  setRelay(relay, true); // Liga o relé e espera até o jogador apertar o botão correto
+  setRelay(relay, true);
 }
 
 void endGame() {
