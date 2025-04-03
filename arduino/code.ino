@@ -106,27 +106,26 @@ void startGame() {
   score = 0;
   gameRunning = true;
   gameStartTime = millis();
-  // Inicia a primeira rodada
   waitingNextRound = false;
   nextRound();
 }
 
 void nextRound() {
-  if (millis() - gameStartTime >= gameDuration) return;
-  
+  if (targetActive || millis() - gameStartTime >= gameDuration) return;
+
   uint8_t relay;
   uint8_t attempts = 0;
   do {
-    relay = random(1, 9); // Escolhe relé de 1 a 8
+    relay = random(1, 9); // Relé de 1 a 8
     attempts++;
-  } while (relay == previousTarget.relay && (attempts < 10));
-  
+  } while (relay == previousTarget.relay && attempts < 10);
+
   previousTarget = { relay, relay };
   currentTarget = previousTarget;
   targetActive = true;
-  
   Serial.printf("Nova rodada: Relé %d, Botão correto: %d (tentativas: %d)\n", relay, relay, attempts);
-  setRelay(relay, true);
+
+  setRelay(relay, true); // Liga o relé e espera até o jogador apertar o botão correto
 }
 
 void endGame() {
@@ -139,7 +138,10 @@ void endGame() {
 }
 
 void updateGameState() {
-  if (gameState != 3) animationStatus = false;
+  if (gameState != 3 && animationStatus == true) {
+    animationStatus = false;
+    turnOffAllRelays(); // Desliga todos os relés
+  };
   
   // Se o tempo do jogo acabou, liga todos os relés por 3s e muda o estado
   if (gameState == 1 && (millis() - gameStartTime >= gameDuration)) {
@@ -182,6 +184,7 @@ void handleCountdown() {
 
 // ========================= Animações Idle =========================
 // Sequências de animação usando os relés (de 1 a 8)
+// --- Variáveis e Sequências (permanece igual) ---
 const uint8_t spiralSequence[] = { 1, 2, 8, 7, 3, 4, 6, 5 };
 const size_t spiralSequenceCount = sizeof(spiralSequence) / sizeof(spiralSequence[0]);
 const uint8_t snakeSequence[] = { 1, 2, 4, 8, 7, 5, 3, 1 };
@@ -189,85 +192,73 @@ const size_t snakeSequenceCount = sizeof(snakeSequence) / sizeof(snakeSequence[0
 
 enum IdleAnimType { SPIRAL, SNAKE };
 IdleAnimType currentIdleAnim;
-bool idleAnimActive = false;
 
-bool spiralAnimRunning = false;
-unsigned long spiralAnimStart = 0;
-size_t spiralIndex = 0;
+// --- Remova as variáveis "idleAnimActive" e os indicadores de animação anterior ---
 
-bool snakeAnimRunning = false;
-unsigned long snakeAnimStart = 0;
-size_t snakeIndex = 0;
-
+// Função auxiliar para acionar um LED (permanece igual)
 void setLed(uint8_t led, bool state) {
   setRelay(led, state);
 }
 
-void startSpiralAnimation() {
-  spiralAnimRunning = true;
-  spiralAnimStart = millis();
-  spiralIndex = 0;
+// Função que executa a animação spiral até o fim
+void runSpiralAnimation() {
+  bool spiralAnimRunning = true;
+  unsigned long spiralAnimStart = millis();
+  size_t spiralIndex = 0;
   turnOffAllRelays();
-}
+  Serial.println("Spiral animation iniciada");
 
-void updateSpiralAnimation() {
-  if (!spiralAnimRunning) return;
-  unsigned long now = millis();
-  if (now - spiralAnimStart >= spiralIndex * 300UL) {
-    if (spiralIndex > 0)
-      setLed(spiralSequence[spiralIndex - 1], false);
-    if (spiralIndex < spiralSequenceCount) {
-      setLed(spiralSequence[spiralIndex], true);
-      spiralIndex++;
-    } else if (now - spiralAnimStart >= spiralSequenceCount * 300UL + 500) {
-      setLed(spiralSequence[spiralSequenceCount - 1], false);
-      spiralAnimRunning = false;
+  while (spiralAnimRunning) {
+    unsigned long now = millis();
+    if (now - spiralAnimStart >= spiralIndex * 300UL) {
+      if (spiralIndex > 0)
+        setLed(spiralSequence[spiralIndex - 1], false);
+      if (spiralIndex < spiralSequenceCount) {
+        setLed(spiralSequence[spiralIndex], true);
+        spiralIndex++;
+      } else if (now - spiralAnimStart >= spiralSequenceCount * 300UL + 500) {
+        setLed(spiralSequence[spiralSequenceCount - 1], false);
+        spiralAnimRunning = false;
+        Serial.println("Spiral animation finalizada");
+      }
     }
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
 
-void startSnakeAnimation() {
-  snakeAnimRunning = true;
-  snakeAnimStart = millis();
-  snakeIndex = 0;
+// Função que executa a animação snake até o fim
+void runSnakeAnimation() {
+  bool snakeAnimRunning = true;
+  unsigned long snakeAnimStart = millis();
+  size_t snakeIndex = 0;
   turnOffAllRelays();
-}
+  Serial.println("Snake animation iniciada");
 
-void updateSnakeAnimation() {
-  if (!snakeAnimRunning) return;
-  unsigned long now = millis();
-  if (now - snakeAnimStart >= snakeIndex * 300UL) {
-    if (snakeIndex > 0)
-      setLed(snakeSequence[snakeIndex - 1], false);
-    if (snakeIndex < snakeSequenceCount) {
-      setLed(snakeSequence[snakeIndex], true);
-      snakeIndex++;
-    } else if (now - snakeAnimStart >= snakeSequenceCount * 300UL + 500) {
-      setLed(snakeSequence[snakeSequenceCount - 1], false);
-      snakeAnimRunning = false;
+  while (snakeAnimRunning) {
+    unsigned long now = millis();
+    if (now - snakeAnimStart >= snakeIndex * 300UL) {
+      if (snakeIndex > 0)
+        setLed(snakeSequence[snakeIndex - 1], false);
+      if (snakeIndex < snakeSequenceCount) {
+        setLed(snakeSequence[snakeIndex], true);
+        snakeIndex++;
+      } else if (now - snakeAnimStart >= snakeSequenceCount * 300UL + 500) {
+        setLed(snakeSequence[snakeSequenceCount - 1], false);
+        snakeAnimRunning = false;
+        Serial.println("Snake animation finalizada");
+      }
     }
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
 
-void chooseIdleAnimation() {
+// Função que escolhe e executa uma animação idle até o fim
+void runIdleAnimation() {
   currentIdleAnim = (IdleAnimType) random(0, 2);
-  idleAnimActive = true;
-  if (currentIdleAnim == SPIRAL)
-    startSpiralAnimation();
-  else
-    startSnakeAnimation();
-}
-
-void updateIdleAnimation() {
-  if (!idleAnimActive)
-    chooseIdleAnimation();
-  
   if (currentIdleAnim == SPIRAL) {
-    updateSpiralAnimation();
-    if (!spiralAnimRunning) idleAnimActive = false;
+    runSpiralAnimation();
   } else {
-    updateSnakeAnimation();
-    if (!snakeAnimRunning) idleAnimActive = false;
+    runSnakeAnimation();
   }
 }
 
@@ -290,7 +281,7 @@ void taskButtonRead(void *pvParameters) {
             nextRoundTime = millis() + 300;
           }
         }
-      }
+      }      
       lastButtonStates[i] = currentState;
     }
     vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -373,15 +364,6 @@ void taskWebSocket(void *pvParameters) {
   }
 }
 
-void taskIdleAnimation(void *pvParameters) {
-  for (;;) {
-    if (gameState == 3 && animationStatus) {
-      updateIdleAnimation();
-    }
-    vTaskDelay(50 / portTICK_PERIOD_MS);
-  }
-}
-
 // ========================= Monitoramento de Heap =========================
 // Imprime o valor de memória livre a cada 60 segundos
 void taskHeapMonitor(void *pvParameters) {
@@ -433,7 +415,6 @@ void setup() {
   
   // Cria as tarefas
   xTaskCreatePinnedToCore(taskWebSocket, "WebSocket", 4096, NULL, 1, NULL, 0);
-  xTaskCreatePinnedToCore(taskIdleAnimation, "IdleAnimation", 2048, NULL, 1, NULL, 1);
   xTaskCreatePinnedToCore(taskButtonRead, "ButtonRead", 2048, NULL, 1, NULL, 1);
   xTaskCreatePinnedToCore(taskHeapMonitor, "HeapMonitor", 2048, NULL, 1, NULL, 0);
 }
@@ -441,14 +422,19 @@ void setup() {
 void loop() {
   updateGameState();
   
-  if (gameState == 4)
+  if (gameState == 4) {
     handleCountdown();
-  
-  if (waitingNextRound && millis() >= nextRoundTime) {
-    waitingNextRound = false;
-    nextRound();
   }
   
-  // Pequeno delay no loop principal para ceder tempo de CPU
+  if (waitingNextRound && millis() >= nextRoundTime && !targetActive) {
+    waitingNextRound = false;
+    nextRound();
+  }  
+  
+  // Executa a animação idle somente se estiver no estado 3 (Ranking)
+  if (gameState == 3 && animationStatus) {
+    runIdleAnimation();
+  }
+  
   vTaskDelay(50 / portTICK_PERIOD_MS);
 }
