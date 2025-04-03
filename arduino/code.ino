@@ -47,15 +47,13 @@ void setRelay(uint8_t relay, bool state) {
 }
 
 void turnOnAllRelays() {
-  for (uint8_t r = 1; r <= 8; r++) {
-    setRelay(r, true);
-  }
+  currentOutput = 0x00;
+  writeBlockData(OLATA, currentOutput);
 }
 
 void turnOffAllRelays() {
-  for (uint8_t r = 1; r <= 8; r++) {
-    setRelay(r, false);
-  }
+  currentOutput = 0xFF;
+  writeBlockData(OLATA, currentOutput);
 }
 
 // ========================= Configurações Gerais =========================
