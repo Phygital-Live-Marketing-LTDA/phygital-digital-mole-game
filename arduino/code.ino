@@ -114,7 +114,7 @@ void nextRound() {
   uint8_t relay;
   uint8_t attempts = 0;
   do {
-    relay = random(1, 9); // Relé de 1 a 8
+    relay = random(1, 8); // Relé de 1 a 8
     attempts++;
   } while (relay == previousTarget.relay && attempts < 10);
 
